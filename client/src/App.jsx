@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Laptop, Users, ClipboardList, Truck, RotateCcw,
   Search, Bell, Plus, ArrowUpRight, Package, Clock, CheckCircle2,
   Menu, X, Globe2, ShieldCheck, ArrowRight, Mail, LockKeyhole,
-  Eye, EyeOff, Boxes, MapPin, CircleCheck, Pencil, Trash2,
+  Eye, EyeOff, Boxes, MapPin, CircleCheck, Pencil, Trash2, Check,
 } from "lucide-react";
 import "./App.css";
 
@@ -37,6 +37,10 @@ const statusLabels = {
   active: "Active",
   inactive: "Inactive",
   on_leave: "On leave",
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
+  fulfilled: "Fulfilled",
 };
 
 const stats = [
@@ -605,6 +609,184 @@ function EditEmployeeModal({ employee, onClose, onUpdated }) {
   );
 }
 
+function AddRequestModal({ employees = [], onClose, onAdded }) {
+  const [form, setForm] = useState({
+    employee: employees[0]?._id || "",
+    item: "",
+    itemType: "laptop",
+    reason: "",
+    status: "pending",
+  });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function update(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (!form.employee) {
+      setError("Please select an employee.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const { request } = await api("/requests", {
+        method: "POST",
+        body: JSON.stringify(form),
+      });
+      onAdded(request);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Add equipment request" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div><h2>New equipment request</h2><p>Submit an equipment request on behalf of an employee.</p></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label htmlFor="req-emp">Employee</label>
+            <select id="req-emp" value={form.employee} onChange={(e) => update("employee", e.target.value)} required>
+              <option value="">Select employee...</option>
+              {employees.map((emp) => (
+                <option key={emp._id} value={emp._id}>
+                  {emp.name} ({emp.department || "No department"}) — {emp.email}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-field">
+            <label htmlFor="req-item">Equipment / Item</label>
+            <input id="req-item" value={form.item} onChange={(e) => update("item", e.target.value)} placeholder="e.g. MacBook Pro 16 or External Monitor" required />
+          </div>
+          <div className="form-field">
+            <label htmlFor="req-type">Item category</label>
+            <select id="req-type" value={form.itemType} onChange={(e) => update("itemType", e.target.value)}>
+              {equipmentTypes.map((type) => (
+                <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-field">
+            <label htmlFor="req-reason">Reason / Justification (optional)</label>
+            <textarea id="req-reason" value={form.reason} onChange={(e) => update("reason", e.target.value)} placeholder="Why is this equipment needed?" />
+          </div>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <div className="modal-actions">
+            <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
+            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Submitting..." : "Submit request"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function RequestsTable({ requests, loading, search, onClearSearch, onAdd, onUpdateStatus, onDelete }) {
+  return (
+    <section className="panel">
+      <div className="panel-heading">
+        <div><h2>All requests</h2><p>Equipment requests submitted by team members</p></div>
+        <button className="text-button" onClick={onAdd}>Add request <Plus size={15} /></button>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>EMPLOYEE</th>
+              <th>REQUESTED ITEM</th>
+              <th>TYPE</th>
+              <th>DATE</th>
+              <th>REASON</th>
+              <th>STATUS</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan="7" className="empty-state">Loading requests...</td></tr>
+            ) : requests.length === 0 ? (
+              <tr><td colSpan="7" className="empty-state">{search ? "No matching requests found." : "No requests yet. Submit your first request with the button above."}</td></tr>
+            ) : (
+              requests.map((req) => (
+                <tr key={req._id}>
+                  <td>
+                    <div className="employee-cell">
+                      <span className="employee-avatar">
+                        {req.employee?.name?.[0]?.toUpperCase() || "E"}
+                      </span>
+                      <div className="employee-info-cell">
+                        <strong>{req.employee?.name || "Unknown employee"}</strong>
+                        <span>{req.employee?.department || req.employee?.email || "—"}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="cell-strong">{req.item}</td>
+                  <td className="cell-capitalize">{req.itemType || "laptop"}</td>
+                  <td>{req.date || "—"}</td>
+                  <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.reason}>
+                    {req.reason || "—"}
+                  </td>
+                  <td>
+                    <span className={`status-badge status-${req.status}`}>
+                      {statusLabels[req.status] || req.status}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="table-actions">
+                      {req.status === "pending" && (
+                        <>
+                          <button
+                            className="action-btn action-btn-success"
+                            title="Approve request"
+                            aria-label="Approve request"
+                            onClick={() => onUpdateStatus(req._id, "approved")}
+                          >
+                            <Check size={14} />
+                          </button>
+                          <button
+                            className="action-btn action-btn-danger"
+                            title="Reject request"
+                            aria-label="Reject request"
+                            onClick={() => onUpdateStatus(req._id, "rejected")}
+                          >
+                            <X size={14} />
+                          </button>
+                        </>
+                      )}
+                      <button
+                        className="action-btn action-btn-danger"
+                        title="Delete request"
+                        aria-label="Delete request"
+                        onClick={() => onDelete(req)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="panel-footer">
+        <span>{requests.length} requests</span>
+        <button onClick={onClearSearch}>Clear search</button>
+      </div>
+    </section>
+  );
+}
+
 function DeleteConfirmModal({ title, message, itemName, onClose, onConfirm, loading }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -713,6 +895,13 @@ function Dashboard({ user, onSignOut }) {
   const [deletingEmployee, setDeletingEmployee] = useState(null);
   const [isDeletingEmployee, setIsDeletingEmployee] = useState(false);
 
+  // Requests state
+  const [requests, setRequests] = useState([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
+  const [showAddRequest, setShowAddRequest] = useState(false);
+  const [deletingRequest, setDeletingRequest] = useState(null);
+  const [isDeletingRequest, setIsDeletingRequest] = useState(false);
+
   useEffect(() => {
     api("/equipment")
       .then(({ items }) => setEquipment(items || []))
@@ -723,9 +912,13 @@ function Dashboard({ user, onSignOut }) {
       .then(({ employees: emps }) => setEmployees(emps || []))
       .catch(() => {})
       .finally(() => setLoadingEmployees(false));
+
+    api("/requests")
+      .then(({ requests: reqs }) => setRequests(reqs || []))
+      .catch(() => {})
+      .finally(() => setLoadingRequests(false));
   }, []);
 
-  const requests = [];
   const shipments = [];
 
   const visibleEquipment = equipment.filter((item) => {
@@ -741,16 +934,23 @@ function Dashboard({ user, onSignOut }) {
       .includes(search.toLowerCase())
   );
 
+  const visibleRequests = requests.filter((r) => {
+    const empName = r.employee?.name || "";
+    return `${empName} ${r.item} ${r.itemType || ""} ${r.reason || ""} ${r.status || ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase());
+  });
+
   const activeEmployeesCount = employees.filter((emp) => emp.status === "active").length;
+  const pendingRequestsCount = requests.filter((r) => r.status === "pending").length;
 
   const liveStats = stats.map((stat) => {
     if (stat.label === "Total Equipment") return { ...stat, value: equipment.length };
     if (stat.label === "Active Employees") return { ...stat, value: activeEmployeesCount };
+    if (stat.label === "Pending Requests") return { ...stat, value: pendingRequestsCount };
     if (stat.label === "In Transit") return { ...stat, value: equipment.filter((item) => item.status === "in_transit").length };
     return stat;
   });
-
-  const visibleRequests = requests.filter((request) => `${request.name} ${request.item}`.toLowerCase().includes(search.toLowerCase()));
 
   // Equipment actions
   async function confirmDeleteEquipment() {
@@ -775,7 +975,6 @@ function Dashboard({ user, onSignOut }) {
       await api(`/employees/${deletingEmployee._id}`, { method: "DELETE" });
       const deletedId = deletingEmployee._id;
       setEmployees((list) => list.filter((emp) => emp._id !== deletedId));
-      // Any equipment assigned to this employee is now unassigned
       setEquipment((list) =>
         list.map((item) =>
           item.assignedTo?._id === deletedId || item.assignedTo === deletedId
@@ -788,6 +987,33 @@ function Dashboard({ user, onSignOut }) {
       alert(err.message || "Failed to delete employee");
     } finally {
       setIsDeletingEmployee(false);
+    }
+  }
+
+  // Request actions
+  async function handleUpdateRequestStatus(id, newStatus) {
+    try {
+      const { request: updated } = await api(`/requests/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ status: newStatus }),
+      });
+      setRequests((list) => list.map((r) => (r._id === id ? updated : r)));
+    } catch (err) {
+      alert(err.message || "Failed to update request status");
+    }
+  }
+
+  async function confirmDeleteRequest() {
+    if (!deletingRequest) return;
+    setIsDeletingRequest(true);
+    try {
+      await api(`/requests/${deletingRequest._id}`, { method: "DELETE" });
+      setRequests((list) => list.filter((r) => r._id !== deletingRequest._id));
+      setDeletingRequest(null);
+    } catch (err) {
+      alert(err.message || "Failed to delete request");
+    } finally {
+      setIsDeletingRequest(false);
     }
   }
 
@@ -853,7 +1079,6 @@ function Dashboard({ user, onSignOut }) {
           onClose={() => setEditingEmployee(null)}
           onUpdated={(updated) => {
             setEmployees((list) => list.map((emp) => (emp._id === updated._id ? updated : emp)));
-            // Update assignedTo name in equipment list if it was changed
             setEquipment((list) =>
               list.map((item) =>
                 item.assignedTo?._id === updated._id
@@ -877,6 +1102,29 @@ function Dashboard({ user, onSignOut }) {
         />
       )}
 
+      {/* Request Modals */}
+      {showAddRequest && (
+        <AddRequestModal
+          employees={employees}
+          onClose={() => setShowAddRequest(false)}
+          onAdded={(request) => {
+            setRequests((list) => [request, ...list]);
+            setShowAddRequest(false);
+          }}
+        />
+      )}
+
+      {deletingRequest && (
+        <DeleteConfirmModal
+          title="Delete request"
+          message="Are you sure you want to delete request for"
+          itemName={deletingRequest.item}
+          loading={isDeletingRequest}
+          onClose={() => setDeletingRequest(null)}
+          onConfirm={confirmDeleteRequest}
+        />
+      )}
+
       <main className="main-content">
         <header className="topbar">
           <button className="mobile-menu" onClick={() => setMenuOpen(true)}><Menu size={22} /></button>
@@ -887,7 +1135,7 @@ function Dashboard({ user, onSignOut }) {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={activePage === "Equipment" ? "Search equipment..." : activePage === "Employees" ? "Search employees..." : "Search requests..."}
+                placeholder={activePage === "Equipment" ? "Search equipment..." : activePage === "Employees" ? "Search employees..." : activePage === "Requests" ? "Search requests..." : "Search..."}
                 aria-label="Search"
               />
             </div>
@@ -906,6 +1154,8 @@ function Dashboard({ user, onSignOut }) {
                   ? "Your workspace overview will appear here as records are added."
                   : activePage === "Employees"
                   ? "Manage your global workforce and employee records in one place."
+                  : activePage === "Requests"
+                  ? "Review, approve, and manage equipment requests submitted by employees."
                   : `Manage ${activePage.toLowerCase()} in one place.`}
               </p>
             </div>
@@ -913,11 +1163,12 @@ function Dashboard({ user, onSignOut }) {
               className="primary-button"
               onClick={() => {
                 if (activePage === "Employees") setShowAddEmployee(true);
-                else if (activePage === "Dashboard" || activePage === "Equipment") setShowAddEquipment(true);
+                else if (activePage === "Equipment" || activePage === "Dashboard") setShowAddEquipment(true);
+                else if (activePage === "Requests") setShowAddRequest(true);
                 else alert("We'll add this feature when we build the forms.");
               }}
             >
-              <Plus size={18} /> Add {activePage === "Employees" ? "employee" : activePage === "Dashboard" ? "equipment" : activePage.replace(/s$/, "")}
+              <Plus size={18} /> Add {activePage === "Employees" ? "employee" : activePage === "Requests" ? "request" : activePage === "Dashboard" ? "equipment" : activePage.replace(/s$/, "")}
             </button>
           </section>
 
@@ -954,12 +1205,25 @@ function Dashboard({ user, onSignOut }) {
               onEdit={(emp) => setEditingEmployee(emp)}
               onDelete={(emp) => setDeletingEmployee(emp)}
             />
+          ) : activePage === "Requests" ? (
+            <RequestsTable
+              requests={visibleRequests}
+              loading={loadingRequests}
+              search={search}
+              onClearSearch={() => setSearch("")}
+              onAdd={() => setShowAddRequest(true)}
+              onUpdateStatus={handleUpdateRequestStatus}
+              onDelete={(req) => setDeletingRequest(req)}
+            />
           ) : (
             <section className="content-grid">
               <article className="panel requests-panel">
                 <div className="panel-heading">
                   <div><h2>Recent requests</h2><p>Equipment requests submitted by employees</p></div>
-                  <button className="text-button" onClick={() => setActivePage("Requests")}>View all <ArrowUpRight size={15} /></button>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <button className="text-button" onClick={() => setShowAddRequest(true)}>Add request <Plus size={14} /></button>
+                    <button className="text-button" onClick={() => setActivePage("Requests")}>View all <ArrowUpRight size={15} /></button>
+                  </div>
                 </div>
                 <div className="table-wrap">
                   <table>
@@ -970,10 +1234,21 @@ function Dashboard({ user, onSignOut }) {
                       ) : (
                         visibleRequests.map((request) => (
                           <tr key={request._id}>
-                            <td>{request.name}</td>
-                            <td>{request.item}</td>
+                            <td>
+                              <div className="assignee-badge">
+                                <span className="assignee-avatar">
+                                  {request.employee?.name?.[0]?.toUpperCase() || "E"}
+                                </span>
+                                <span>{request.employee?.name || "Unknown"}</span>
+                              </div>
+                            </td>
+                            <td className="cell-strong">{request.item}</td>
                             <td>{request.date}</td>
-                            <td>{request.status}</td>
+                            <td>
+                              <span className={`status-badge status-${request.status}`}>
+                                {statusLabels[request.status] || request.status}
+                              </span>
+                            </td>
                           </tr>
                         ))
                       )}

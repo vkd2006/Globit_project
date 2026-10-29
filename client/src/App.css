@@ -2987,3 +2987,29 @@ td {
   line-height: 1.5;
   margin: 0 0 16px;
 }
+
+.status-pending {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.status-approved {
+  color: #168d68;
+  background: #e6f8f0;
+}
+
+.status-rejected {
+  color: #c0392b;
+  background: #fdeeed;
+}
+
+.status-fulfilled {
+  color: #3b7bd0;
+  background: #eaf3ff;
+}
+
+.action-btn-success:hover {
+  color: #168d68;
+  background: #e6f8f0;
+  border-color: #a7f3d0;
+}
