@@ -16,6 +16,11 @@ const equipmentSchema = new mongoose.Schema(
         },
         country: { type: String, trim: true },
         notes: { type: String, trim: true },
+        assignedTo: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Employee',
+            default: null,
+        },
     },
     { timestamps: true }
 )

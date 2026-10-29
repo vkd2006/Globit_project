@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Laptop, Users, ClipboardList, Truck, RotateCcw,
   Search, Bell, Plus, ArrowUpRight, Package, Clock, CheckCircle2,
-  Menu, X, Globe2, ShieldCheck, Plane, ArrowRight, Mail, LockKeyhole,
-  Eye, EyeOff, Boxes, MapPin, CircleCheck,
+  Menu, X, Globe2, ShieldCheck, ArrowRight, Mail, LockKeyhole,
+  Eye, EyeOff, Boxes, MapPin, CircleCheck, Pencil, Trash2,
 } from "lucide-react";
 import "./App.css";
 
@@ -29,11 +29,19 @@ const navigation = [
 ];
 
 const equipmentTypes = ["laptop", "monitor", "phone", "keyboard", "mouse", "headset", "other"];
-const statusLabels = { available: "Available", assigned: "Assigned", in_transit: "In transit", retired: "Retired" };
+const statusLabels = {
+  available: "Available",
+  assigned: "Assigned",
+  in_transit: "In transit",
+  retired: "Retired",
+  active: "Active",
+  inactive: "Inactive",
+  on_leave: "On leave",
+};
 
 const stats = [
   { label: "Total Equipment", value: 0, note: "Registered equipment", icon: Laptop },
-  { label: "Active Employees", value: 0, note: "Registered employees", icon: Users },
+  { label: "Active Employees", value: 0, note: "Registered active staff", icon: Users },
   { label: "Pending Requests", value: 0, note: "Awaiting review", icon: Clock },
   { label: "In Transit", value: 0, note: "Active shipments", icon: Truck },
 ];
@@ -165,8 +173,15 @@ function SignInPage({ onBack, onSignedIn }) {
   );
 }
 
-function AddEquipmentModal({ onClose, onAdded }) {
-  const [form, setForm] = useState({ name: "", type: "laptop", serialNumber: "", country: "", notes: "" });
+function AddEquipmentModal({ onClose, onAdded, employees = [] }) {
+  const [form, setForm] = useState({
+    name: "",
+    type: "laptop",
+    serialNumber: "",
+    country: "",
+    notes: "",
+    assignedTo: "",
+  });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -179,7 +194,12 @@ function AddEquipmentModal({ onClose, onAdded }) {
     setSaving(true);
     setError("");
     try {
-      const { item } = await api("/equipment", { method: "POST", body: JSON.stringify(form) });
+      const payload = {
+        ...form,
+        assignedTo: form.assignedTo || null,
+        status: form.assignedTo ? "assigned" : "available",
+      };
+      const { item } = await api("/equipment", { method: "POST", body: JSON.stringify(payload) });
       onAdded(item);
     } catch (err) {
       setError(err.message);
@@ -217,6 +237,17 @@ function AddEquipmentModal({ onClose, onAdded }) {
             <input id="eq-serial" value={form.serialNumber} onChange={(e) => update("serialNumber", e.target.value)} placeholder="e.g. C02XK1ABJG5H" required />
           </div>
           <div className="form-field">
+            <label htmlFor="eq-assigned">Assign to employee (optional)</label>
+            <select id="eq-assigned" value={form.assignedTo} onChange={(e) => update("assignedTo", e.target.value)}>
+              <option value="">Unassigned (Available)</option>
+              {employees.map((emp) => (
+                <option key={emp._id} value={emp._id}>
+                  {emp.name} {emp.department ? `(${emp.department})` : ""} — {emp.email}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-field">
             <label htmlFor="eq-notes">Notes (optional)</label>
             <textarea id="eq-notes" value={form.notes} onChange={(e) => update("notes", e.target.value)} placeholder="Anything worth remembering" />
           </div>
@@ -231,7 +262,120 @@ function AddEquipmentModal({ onClose, onAdded }) {
   );
 }
 
-function EquipmentTable({ items, loading, search, onClearSearch, onAdd }) {
+function EditEquipmentModal({ item, employees = [], onClose, onUpdated }) {
+  const [form, setForm] = useState({
+    name: item.name || "",
+    type: item.type || "laptop",
+    serialNumber: item.serialNumber || "",
+    country: item.country || "",
+    notes: item.notes || "",
+    status: item.status || "available",
+    assignedTo: item.assignedTo?._id || item.assignedTo || "",
+  });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function update(field, value) {
+    setForm((current) => {
+      const next = { ...current, [field]: value };
+      if (field === "assignedTo") {
+        if (value) {
+          next.status = "assigned";
+        } else if (current.status === "assigned") {
+          next.status = "available";
+        }
+      }
+      return next;
+    });
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const payload = {
+        ...form,
+        assignedTo: form.assignedTo || null,
+      };
+      const { item: updated } = await api(`/equipment/${item._id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      onUpdated(updated);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Edit equipment" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div><h2>Edit equipment</h2><p>Update device details and employee assignment.</p></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label htmlFor="edit-eq-name">Name</label>
+            <input id="edit-eq-name" value={form.name} onChange={(e) => update("name", e.target.value)} required />
+          </div>
+          <div className="form-row">
+            <div className="form-field">
+              <label htmlFor="edit-eq-type">Type</label>
+              <select id="edit-eq-type" value={form.type} onChange={(e) => update("type", e.target.value)}>
+                {equipmentTypes.map((type) => <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>)}
+              </select>
+            </div>
+            <div className="form-field">
+              <label htmlFor="edit-eq-country">Country</label>
+              <input id="edit-eq-country" value={form.country} onChange={(e) => update("country", e.target.value)} />
+            </div>
+          </div>
+          <div className="form-field">
+            <label htmlFor="edit-eq-serial">Serial number</label>
+            <input id="edit-eq-serial" value={form.serialNumber} onChange={(e) => update("serialNumber", e.target.value)} required />
+          </div>
+          <div className="form-row">
+            <div className="form-field">
+              <label htmlFor="edit-eq-assigned">Assign to employee</label>
+              <select id="edit-eq-assigned" value={form.assignedTo} onChange={(e) => update("assignedTo", e.target.value)}>
+                <option value="">Unassigned</option>
+                {employees.map((emp) => (
+                  <option key={emp._id} value={emp._id}>
+                    {emp.name} {emp.department ? `(${emp.department})` : ""} — {emp.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field">
+              <label htmlFor="edit-eq-status">Status</label>
+              <select id="edit-eq-status" value={form.status} onChange={(e) => update("status", e.target.value)}>
+                <option value="available">Available</option>
+                <option value="assigned">Assigned</option>
+                <option value="in_transit">In transit</option>
+                <option value="retired">Retired</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-field">
+            <label htmlFor="edit-eq-notes">Notes (optional)</label>
+            <textarea id="edit-eq-notes" value={form.notes} onChange={(e) => update("notes", e.target.value)} />
+          </div>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <div className="modal-actions">
+            <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
+            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving..." : "Save changes"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EquipmentTable({ items, loading, search, onClearSearch, onAdd, onEdit, onDelete }) {
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -240,12 +384,22 @@ function EquipmentTable({ items, loading, search, onClearSearch, onAdd }) {
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>NAME</th><th>TYPE</th><th>SERIAL NUMBER</th><th>COUNTRY</th><th>STATUS</th></tr></thead>
+          <thead>
+            <tr>
+              <th>NAME</th>
+              <th>TYPE</th>
+              <th>SERIAL NUMBER</th>
+              <th>COUNTRY</th>
+              <th>ASSIGNED TO</th>
+              <th>STATUS</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="5" className="empty-state">Loading equipment...</td></tr>
+              <tr><td colSpan="7" className="empty-state">Loading equipment...</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan="5" className="empty-state">{search ? "No matching equipment found." : "No equipment yet. Add your first item with the button above."}</td></tr>
+              <tr><td colSpan="7" className="empty-state">{search ? "No matching equipment found." : "No equipment yet. Add your first item with the button above."}</td></tr>
             ) : (
               items.map((item) => (
                 <tr key={item._id}>
@@ -253,7 +407,29 @@ function EquipmentTable({ items, loading, search, onClearSearch, onAdd }) {
                   <td className="cell-capitalize">{item.type}</td>
                   <td>{item.serialNumber}</td>
                   <td>{item.country || "—"}</td>
+                  <td>
+                    {item.assignedTo ? (
+                      <div className="assignee-badge" title={`${item.assignedTo.name} (${item.assignedTo.email || ""})`}>
+                        <span className="assignee-avatar">
+                          {item.assignedTo.name?.[0]?.toUpperCase() || "E"}
+                        </span>
+                        <span>{item.assignedTo.name}</span>
+                      </div>
+                    ) : (
+                      <span className="cell-muted">—</span>
+                    )}
+                  </td>
                   <td><span className={`status-badge status-${item.status}`}>{statusLabels[item.status] || item.status}</span></td>
+                  <td>
+                    <div className="table-actions">
+                      <button className="action-btn" title="Edit / Assign equipment" aria-label="Edit equipment" onClick={() => onEdit(item)}>
+                        <Pencil size={14} />
+                      </button>
+                      <button className="action-btn action-btn-danger" title="Delete equipment" aria-label="Delete equipment" onClick={() => onDelete(item)}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
@@ -265,54 +441,581 @@ function EquipmentTable({ items, loading, search, onClearSearch, onAdd }) {
   );
 }
 
+function AddEmployeeModal({ onClose, onAdded }) {
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    department: "",
+    country: "",
+    address: "",
+    status: "active",
+  });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function update(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const { employee } = await api("/employees", {
+        method: "POST",
+        body: JSON.stringify(form),
+      });
+      onAdded(employee);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Add employee" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div><h2>Add employee</h2><p>Register a team member in your organization.</p></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label htmlFor="emp-name">Full name</label>
+            <input id="emp-name" value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Priya Sharma" required />
+          </div>
+          <div className="form-field">
+            <label htmlFor="emp-email">Email address</label>
+            <input id="emp-email" type="email" value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="e.g. priya@company.com" required />
+          </div>
+          <div className="form-row">
+            <div className="form-field">
+              <label htmlFor="emp-dept">Department</label>
+              <input id="emp-dept" value={form.department} onChange={(e) => update("department", e.target.value)} placeholder="e.g. Engineering" />
+            </div>
+            <div className="form-field">
+              <label htmlFor="emp-country">Country</label>
+              <input id="emp-country" value={form.country} onChange={(e) => update("country", e.target.value)} placeholder="e.g. India" />
+            </div>
+          </div>
+          <div className="form-field">
+            <label htmlFor="emp-address">Address / Location</label>
+            <input id="emp-address" value={form.address} onChange={(e) => update("address", e.target.value)} placeholder="e.g. Gurgaon, Haryana" />
+          </div>
+          <div className="form-field">
+            <label htmlFor="emp-status">Status</label>
+            <select id="emp-status" value={form.status} onChange={(e) => update("status", e.target.value)}>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="on_leave">On leave</option>
+            </select>
+          </div>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <div className="modal-actions">
+            <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
+            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving..." : "Add employee"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditEmployeeModal({ employee, onClose, onUpdated }) {
+  const [form, setForm] = useState({
+    name: employee.name || "",
+    email: employee.email || "",
+    department: employee.department || "",
+    country: employee.country || "",
+    address: employee.address || "",
+    status: employee.status || "active",
+  });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function update(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const { employee: updated } = await api(`/employees/${employee._id}`, {
+        method: "PUT",
+        body: JSON.stringify(form),
+      });
+      onUpdated(updated);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Edit employee" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div><h2>Edit employee</h2><p>Update employee profile and details.</p></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label htmlFor="edit-emp-name">Full name</label>
+            <input id="edit-emp-name" value={form.name} onChange={(e) => update("name", e.target.value)} required />
+          </div>
+          <div className="form-field">
+            <label htmlFor="edit-emp-email">Email address</label>
+            <input id="edit-emp-email" type="email" value={form.email} onChange={(e) => update("email", e.target.value)} required />
+          </div>
+          <div className="form-row">
+            <div className="form-field">
+              <label htmlFor="edit-emp-dept">Department</label>
+              <input id="edit-emp-dept" value={form.department} onChange={(e) => update("department", e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label htmlFor="edit-emp-country">Country</label>
+              <input id="edit-emp-country" value={form.country} onChange={(e) => update("country", e.target.value)} />
+            </div>
+          </div>
+          <div className="form-field">
+            <label htmlFor="edit-emp-address">Address / Location</label>
+            <input id="edit-emp-address" value={form.address} onChange={(e) => update("address", e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label htmlFor="edit-emp-status">Status</label>
+            <select id="edit-emp-status" value={form.status} onChange={(e) => update("status", e.target.value)}>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="on_leave">On leave</option>
+            </select>
+          </div>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <div className="modal-actions">
+            <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
+            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving..." : "Save changes"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function DeleteConfirmModal({ title, message, itemName, onClose, onConfirm, loading }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div><h2>{title}</h2><p>This action cannot be undone.</p></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        <p className="modal-confirm-text">
+          {message} {itemName && <strong>"{itemName}"</strong>}?
+        </p>
+        <div className="modal-actions">
+          <button type="button" className="secondary-button" onClick={onClose} disabled={loading}>Cancel</button>
+          <button type="button" className="danger-button" onClick={onConfirm} disabled={loading}>{loading ? "Deleting..." : "Delete"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmployeesTable({ employees, loading, search, onClearSearch, onAdd, onEdit, onDelete }) {
+  return (
+    <section className="panel">
+      <div className="panel-heading">
+        <div><h2>All employees</h2><p>Team members across all countries and departments</p></div>
+        <button className="text-button" onClick={onAdd}>Add employee <Plus size={15} /></button>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>EMPLOYEE</th>
+              <th>EMAIL</th>
+              <th>DEPARTMENT</th>
+              <th>COUNTRY</th>
+              <th>ADDRESS</th>
+              <th>STATUS</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan="7" className="empty-state">Loading employees...</td></tr>
+            ) : employees.length === 0 ? (
+              <tr><td colSpan="7" className="empty-state">{search ? "No matching employees found." : "No employees yet. Add your first employee with the button above."}</td></tr>
+            ) : (
+              employees.map((emp) => (
+                <tr key={emp._id}>
+                  <td>
+                    <div className="employee-cell">
+                      <span className="employee-avatar">{emp.name?.[0]?.toUpperCase() || "E"}</span>
+                      <span className="cell-strong">{emp.name}</span>
+                    </div>
+                  </td>
+                  <td>{emp.email}</td>
+                  <td>{emp.department || "—"}</td>
+                  <td>{emp.country || "—"}</td>
+                  <td>{emp.address || "—"}</td>
+                  <td>
+                    <span className={`status-badge status-${emp.status}`}>
+                      {statusLabels[emp.status] || emp.status}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="table-actions">
+                      <button className="action-btn" title="Edit employee" aria-label="Edit employee" onClick={() => onEdit(emp)}>
+                        <Pencil size={14} />
+                      </button>
+                      <button className="action-btn action-btn-danger" title="Delete employee" aria-label="Delete employee" onClick={() => onDelete(emp)}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="panel-footer">
+        <span>{employees.length} employees</span>
+        <button onClick={onClearSearch}>Clear search</button>
+      </div>
+    </section>
+  );
+}
+
 function Dashboard({ user, onSignOut }) {
   const [activePage, setActivePage] = useState("Dashboard");
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Equipment state
   const [equipment, setEquipment] = useState([]);
   const [loadingEquipment, setLoadingEquipment] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
+  const [showAddEquipment, setShowAddEquipment] = useState(false);
+  const [editingEquipment, setEditingEquipment] = useState(null);
+  const [deletingEquipment, setDeletingEquipment] = useState(null);
+  const [isDeletingEquipment, setIsDeletingEquipment] = useState(false);
+
+  // Employees state
+  const [employees, setEmployees] = useState([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(true);
+  const [showAddEmployee, setShowAddEmployee] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState(null);
+  const [deletingEmployee, setDeletingEmployee] = useState(null);
+  const [isDeletingEmployee, setIsDeletingEmployee] = useState(false);
 
   useEffect(() => {
     api("/equipment")
-      .then(({ items }) => setEquipment(items))
-      .catch(() => { })
+      .then(({ items }) => setEquipment(items || []))
+      .catch(() => {})
       .finally(() => setLoadingEquipment(false));
+
+    api("/employees")
+      .then(({ employees: emps }) => setEmployees(emps || []))
+      .catch(() => {})
+      .finally(() => setLoadingEmployees(false));
   }, []);
+
   const requests = [];
   const shipments = [];
-  const visibleEquipment = equipment.filter((item) => `${item.name} ${item.type} ${item.serialNumber} ${item.country || ""}`.toLowerCase().includes(search.toLowerCase()));
+
+  const visibleEquipment = equipment.filter((item) => {
+    const assigneeName = item.assignedTo?.name || "";
+    return `${item.name} ${item.type} ${item.serialNumber} ${item.country || ""} ${assigneeName} ${item.status}`
+      .toLowerCase()
+      .includes(search.toLowerCase());
+  });
+
+  const visibleEmployees = employees.filter((emp) =>
+    `${emp.name} ${emp.email} ${emp.department || ""} ${emp.country || ""} ${emp.address || ""} ${emp.status}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
+  const activeEmployeesCount = employees.filter((emp) => emp.status === "active").length;
+
   const liveStats = stats.map((stat) => {
     if (stat.label === "Total Equipment") return { ...stat, value: equipment.length };
+    if (stat.label === "Active Employees") return { ...stat, value: activeEmployeesCount };
     if (stat.label === "In Transit") return { ...stat, value: equipment.filter((item) => item.status === "in_transit").length };
     return stat;
   });
+
   const visibleRequests = requests.filter((request) => `${request.name} ${request.item}`.toLowerCase().includes(search.toLowerCase()));
+
+  // Equipment actions
+  async function confirmDeleteEquipment() {
+    if (!deletingEquipment) return;
+    setIsDeletingEquipment(true);
+    try {
+      await api(`/equipment/${deletingEquipment._id}`, { method: "DELETE" });
+      setEquipment((list) => list.filter((item) => item._id !== deletingEquipment._id));
+      setDeletingEquipment(null);
+    } catch (err) {
+      alert(err.message || "Failed to delete equipment");
+    } finally {
+      setIsDeletingEquipment(false);
+    }
+  }
+
+  // Employee actions
+  async function confirmDeleteEmployee() {
+    if (!deletingEmployee) return;
+    setIsDeletingEmployee(true);
+    try {
+      await api(`/employees/${deletingEmployee._id}`, { method: "DELETE" });
+      const deletedId = deletingEmployee._id;
+      setEmployees((list) => list.filter((emp) => emp._id !== deletedId));
+      // Any equipment assigned to this employee is now unassigned
+      setEquipment((list) =>
+        list.map((item) =>
+          item.assignedTo?._id === deletedId || item.assignedTo === deletedId
+            ? { ...item, assignedTo: null, status: "available" }
+            : item
+        )
+      );
+      setDeletingEmployee(null);
+    } catch (err) {
+      alert(err.message || "Failed to delete employee");
+    } finally {
+      setIsDeletingEmployee(false);
+    }
+  }
 
   return (
     <div className="app-shell">
       <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>
         <div className="brand"><div className="brand-icon"><Package size={23} /></div><span>globit<span className="brand-dot">.</span></span><button className="mobile-close" onClick={() => setMenuOpen(false)}><X size={20} /></button></div>
         <div className="workspace-label">WORKSPACE</div>
-        <nav className="navigation">{navigation.map(({ label, icon: Icon }) => <button key={label} className={`nav-item ${activePage === label ? "nav-active" : ""}`} onClick={() => { setActivePage(label); setMenuOpen(false); }}><Icon size={19} /><span>{label}</span></button>)}</nav>
+        <nav className="navigation">{navigation.map(({ label, icon: Icon }) => <button key={label} className={`nav-item ${activePage === label ? "nav-active" : ""}`} onClick={() => { setActivePage(label); setMenuOpen(false); setSearch(""); }}><Icon size={19} /><span>{label}</span></button>)}</nav>
         <div className="sidebar-bottom"><div className="help-card"><div className="help-icon">✦</div><strong>Need a hand?</strong><p>Manage your global equipment with ease.</p><button onClick={() => alert("Help centre coming soon!")}>Visit help centre ↗</button></div><div className="profile"><div className="avatar avatar-purple">{user.name[0]}</div><div className="profile-info"><strong>{user.name}</strong><span>{user.role}</span></div><button className="dashboard-signout" onClick={onSignOut} title="Sign out" aria-label="Sign out"><ArrowRight size={16} /></button></div></div>
       </aside>
       {menuOpen && <button className="mobile-overlay" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
-      {showAdd && <AddEquipmentModal onClose={() => setShowAdd(false)} onAdded={(item) => { setEquipment((list) => [item, ...list]); setShowAdd(false); }} />}
+
+      {/* Equipment Modals */}
+      {showAddEquipment && (
+        <AddEquipmentModal
+          employees={employees}
+          onClose={() => setShowAddEquipment(false)}
+          onAdded={(item) => {
+            setEquipment((list) => [item, ...list]);
+            setShowAddEquipment(false);
+          }}
+        />
+      )}
+
+      {editingEquipment && (
+        <EditEquipmentModal
+          item={editingEquipment}
+          employees={employees}
+          onClose={() => setEditingEquipment(null)}
+          onUpdated={(updated) => {
+            setEquipment((list) => list.map((item) => (item._id === updated._id ? updated : item)));
+            setEditingEquipment(null);
+          }}
+        />
+      )}
+
+      {deletingEquipment && (
+        <DeleteConfirmModal
+          title="Delete equipment"
+          message="Are you sure you want to delete"
+          itemName={deletingEquipment.name}
+          loading={isDeletingEquipment}
+          onClose={() => setDeletingEquipment(null)}
+          onConfirm={confirmDeleteEquipment}
+        />
+      )}
+
+      {/* Employee Modals */}
+      {showAddEmployee && (
+        <AddEmployeeModal
+          onClose={() => setShowAddEmployee(false)}
+          onAdded={(employee) => {
+            setEmployees((list) => [employee, ...list]);
+            setShowAddEmployee(false);
+          }}
+        />
+      )}
+
+      {editingEmployee && (
+        <EditEmployeeModal
+          employee={editingEmployee}
+          onClose={() => setEditingEmployee(null)}
+          onUpdated={(updated) => {
+            setEmployees((list) => list.map((emp) => (emp._id === updated._id ? updated : emp)));
+            // Update assignedTo name in equipment list if it was changed
+            setEquipment((list) =>
+              list.map((item) =>
+                item.assignedTo?._id === updated._id
+                  ? { ...item, assignedTo: { ...item.assignedTo, name: updated.name, email: updated.email, department: updated.department } }
+                  : item
+              )
+            );
+            setEditingEmployee(null);
+          }}
+        />
+      )}
+
+      {deletingEmployee && (
+        <DeleteConfirmModal
+          title="Delete employee"
+          message="Are you sure you want to remove employee"
+          itemName={deletingEmployee.name}
+          loading={isDeletingEmployee}
+          onClose={() => setDeletingEmployee(null)}
+          onConfirm={confirmDeleteEmployee}
+        />
+      )}
+
       <main className="main-content">
-        <header className="topbar"><button className="mobile-menu" onClick={() => setMenuOpen(true)}><Menu size={22} /></button><div className="breadcrumb">Workspace <span>/</span> <strong>{activePage}</strong></div><div className="topbar-actions"><div className="search-box"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={activePage === "Equipment" ? "Search equipment..." : "Search requests..."} aria-label="Search" /></div><button className="notification-button" aria-label="Notifications" onClick={() => alert("No notifications yet.")}><Bell size={19} /></button><div className="avatar avatar-light">{user.name[0]}</div></div></header>
+        <header className="topbar">
+          <button className="mobile-menu" onClick={() => setMenuOpen(true)}><Menu size={22} /></button>
+          <div className="breadcrumb">Workspace <span>/</span> <strong>{activePage}</strong></div>
+          <div className="topbar-actions">
+            <div className="search-box">
+              <Search size={17} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={activePage === "Equipment" ? "Search equipment..." : activePage === "Employees" ? "Search employees..." : "Search requests..."}
+                aria-label="Search"
+              />
+            </div>
+            <button className="notification-button" aria-label="Notifications" onClick={() => alert("No notifications yet.")}><Bell size={19} /></button>
+            <div className="avatar avatar-light">{user.name[0]}</div>
+          </div>
+        </header>
+
         <div className="page-content">
-          <section className="welcome-row"><div><div className="eyebrow"><span className="live-dot" /> GLOBAL EQUIPMENT OPERATIONS</div><h1>{activePage === "Dashboard" ? "Equipment overview" : activePage}</h1><p className="welcome-subtitle">{activePage === "Dashboard" ? "Your workspace overview will appear here as records are added." : `Manage ${activePage.toLowerCase()} in one place.`}</p></div><button className="primary-button" onClick={() => (activePage === "Dashboard" || activePage === "Equipment" ? setShowAdd(true) : alert("We'll add this feature when we build the forms."))}><Plus size={18} /> Add {activePage === "Dashboard" ? "equipment" : activePage.replace(/s$/, "")}</button></section>
-          <section className="stats-grid">{liveStats.map(({ label, value, note, icon: Icon }, index) => <article className="stat-card" key={label}><div className="stat-top"><span className="stat-label">{label}</span><div className={`stat-icon stat-icon-${index}`}><Icon size={20} /></div></div><div className="stat-value">{value}</div><div className={`stat-note ${index === 2 ? "note-muted" : ""}`}><span>{note}</span></div></article>)}</section>
+          <section className="welcome-row">
+            <div>
+              <div className="eyebrow"><span className="live-dot" /> GLOBAL EQUIPMENT OPERATIONS</div>
+              <h1>{activePage === "Dashboard" ? "Equipment overview" : activePage}</h1>
+              <p className="welcome-subtitle">
+                {activePage === "Dashboard"
+                  ? "Your workspace overview will appear here as records are added."
+                  : activePage === "Employees"
+                  ? "Manage your global workforce and employee records in one place."
+                  : `Manage ${activePage.toLowerCase()} in one place.`}
+              </p>
+            </div>
+            <button
+              className="primary-button"
+              onClick={() => {
+                if (activePage === "Employees") setShowAddEmployee(true);
+                else if (activePage === "Dashboard" || activePage === "Equipment") setShowAddEquipment(true);
+                else alert("We'll add this feature when we build the forms.");
+              }}
+            >
+              <Plus size={18} /> Add {activePage === "Employees" ? "employee" : activePage === "Dashboard" ? "equipment" : activePage.replace(/s$/, "")}
+            </button>
+          </section>
+
+          <section className="stats-grid">
+            {liveStats.map(({ label, value, note, icon: Icon }, index) => (
+              <article className="stat-card" key={label}>
+                <div className="stat-top">
+                  <span className="stat-label">{label}</span>
+                  <div className={`stat-icon stat-icon-${index}`}><Icon size={20} /></div>
+                </div>
+                <div className="stat-value">{value}</div>
+                <div className={`stat-note ${index === 2 ? "note-muted" : ""}`}><span>{note}</span></div>
+              </article>
+            ))}
+          </section>
+
           {activePage === "Equipment" ? (
-            <EquipmentTable items={visibleEquipment} loading={loadingEquipment} search={search} onClearSearch={() => setSearch("")} onAdd={() => setShowAdd(true)} />
+            <EquipmentTable
+              items={visibleEquipment}
+              loading={loadingEquipment}
+              search={search}
+              onClearSearch={() => setSearch("")}
+              onAdd={() => setShowAddEquipment(true)}
+              onEdit={(item) => setEditingEquipment(item)}
+              onDelete={(item) => setDeletingEquipment(item)}
+            />
+          ) : activePage === "Employees" ? (
+            <EmployeesTable
+              employees={visibleEmployees}
+              loading={loadingEmployees}
+              search={search}
+              onClearSearch={() => setSearch("")}
+              onAdd={() => setShowAddEmployee(true)}
+              onEdit={(emp) => setEditingEmployee(emp)}
+              onDelete={(emp) => setDeletingEmployee(emp)}
+            />
           ) : (
             <section className="content-grid">
-              <article className="panel requests-panel"><div className="panel-heading"><div><h2>Recent requests</h2><p>Equipment requests submitted by employees</p></div><button className="text-button" onClick={() => setActivePage("Requests")}>View all <ArrowUpRight size={15} /></button></div><div className="table-wrap"><table><thead><tr><th>EMPLOYEE</th><th>EQUIPMENT</th><th>DATE</th><th>STATUS</th></tr></thead><tbody>{visibleRequests.length === 0 ? <tr><td colSpan="4" className="empty-state">{search ? "No matching requests found." : "No requests yet. New requests will appear here."}</td></tr> : visibleRequests.map((request) => <tr key={request._id}><td>{request.name}</td><td>{request.item}</td><td>{request.date}</td><td>{request.status}</td></tr>)}</tbody></table></div><div className="panel-footer"><span>{visibleRequests.length} requests</span><button onClick={() => setSearch("")}>Clear search</button></div></article>
-              <article className="panel shipment-panel"><div className="panel-heading"><div><h2>Shipment tracking</h2><p>Track equipment deliveries worldwide</p></div><button className="icon-button" onClick={() => setActivePage("Shipments")} aria-label="View shipments"><ArrowUpRight size={18} /></button></div><div className="shipment-list">{shipments.length === 0 ? <div className="empty-state shipment-empty"><Package size={27} /><p>No shipments yet.</p><span>Shipment details will appear here when added.</span></div> : shipments.map((shipment) => <div className="shipment-item" key={shipment._id}><div className="shipment-product-icon"><Package size={20} /></div><div className="shipment-details"><div className="shipment-title-row"><strong>{shipment.item}</strong><span>{shipment.progress}%</span></div><p>{shipment.destination}</p><div className="progress-track"><div className="progress-fill" style={{ width: `${shipment.progress}%` }} /></div><span className="shipment-status">{shipment.status}</span></div></div>)}</div><button className="shipment-footer" onClick={() => setActivePage("Shipments")}>View shipments <ArrowUpRight size={16} /></button></article>
+              <article className="panel requests-panel">
+                <div className="panel-heading">
+                  <div><h2>Recent requests</h2><p>Equipment requests submitted by employees</p></div>
+                  <button className="text-button" onClick={() => setActivePage("Requests")}>View all <ArrowUpRight size={15} /></button>
+                </div>
+                <div className="table-wrap">
+                  <table>
+                    <thead><tr><th>EMPLOYEE</th><th>EQUIPMENT</th><th>DATE</th><th>STATUS</th></tr></thead>
+                    <tbody>
+                      {visibleRequests.length === 0 ? (
+                        <tr><td colSpan="4" className="empty-state">{search ? "No matching requests found." : "No requests yet. New requests will appear here."}</td></tr>
+                      ) : (
+                        visibleRequests.map((request) => (
+                          <tr key={request._id}>
+                            <td>{request.name}</td>
+                            <td>{request.item}</td>
+                            <td>{request.date}</td>
+                            <td>{request.status}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="panel-footer"><span>{visibleRequests.length} requests</span><button onClick={() => setSearch("")}>Clear search</button></div>
+              </article>
+              <article className="panel shipment-panel">
+                <div className="panel-heading">
+                  <div><h2>Shipment tracking</h2><p>Track equipment deliveries worldwide</p></div>
+                  <button className="icon-button" onClick={() => setActivePage("Shipments")} aria-label="View shipments"><ArrowUpRight size={18} /></button>
+                </div>
+                <div className="shipment-list">
+                  {shipments.length === 0 ? (
+                    <div className="empty-state shipment-empty">
+                      <Package size={27} /><p>No shipments yet.</p><span>Shipment details will appear here when added.</span>
+                    </div>
+                  ) : (
+                    shipments.map((shipment) => (
+                      <div className="shipment-item" key={shipment._id}>
+                        <div className="shipment-product-icon"><Package size={20} /></div>
+                        <div className="shipment-details">
+                          <div className="shipment-title-row"><strong>{shipment.item}</strong><span>{shipment.progress}%</span></div>
+                          <p>{shipment.destination}</p>
+                          <div className="progress-track"><div className="progress-fill" style={{ width: `${shipment.progress}%` }} /></div>
+                          <span className="shipment-status">{shipment.status}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <button className="shipment-footer" onClick={() => setActivePage("Shipments")}>View shipments <ArrowUpRight size={16} /></button>
+              </article>
             </section>
           )}
-          <section className="bottom-banner"><div className="banner-symbol"><Package size={23} /></div><div className="banner-copy"><strong>Your global equipment hub</strong><p>Manage equipment from procurement to recovery in one place.</p></div><div className="banner-check"><CheckCircle2 size={19} /> Workspace ready</div></section>
+
+          <section className="bottom-banner">
+            <div className="banner-symbol"><Package size={23} /></div>
+            <div className="banner-copy"><strong>Your global equipment hub</strong><p>Manage equipment from procurement to recovery in one place.</p></div>
+            <div className="banner-check"><CheckCircle2 size={19} /> Workspace ready</div>
+          </section>
           <footer className="page-footer"><span>© 2026 Globit</span><span>Global equipment. Simplified.</span></footer>
         </div>
       </main>

@@ -5,6 +5,7 @@ import morgan from 'morgan'
 import cookieParser from 'cookie-parser'
 import authRoutes from './routes/authRoutes.js'
 import equipmentRoutes from './routes/equipmentRoutes.js'
+import employeeRoutes from './routes/employeeRoutes.js'
 
 const app = express()
 
@@ -17,6 +18,7 @@ app.use(morgan('dev'))
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
 app.use('/api/auth', authRoutes)
 app.use('/api/equipment', equipmentRoutes)
+app.use('/api/employees', employeeRoutes)
 
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }))
 app.use((err, req, res, next) => {
