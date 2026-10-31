@@ -41,7 +41,13 @@ const statusLabels = {
   approved: "Approved",
   rejected: "Rejected",
   fulfilled: "Fulfilled",
+  processing: "Processing",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
 };
+
+// How far along each shipment status is (used by the progress bars)
+const shipmentProgress = { processing: 25, in_transit: 65, delivered: 100, cancelled: 0 };
 
 const stats = [
   { label: "Total Equipment", value: 0, note: "Registered equipment", icon: Laptop },
@@ -787,6 +793,246 @@ function RequestsTable({ requests, loading, search, onClearSearch, onAdd, onUpda
   );
 }
 
+function AddShipmentModal({ equipment = [], employees = [], onClose, onAdded }) {
+  // Only items that are free to ship (not already on the road, not retired)
+  const shippable = equipment.filter((item) => item.status === "available" || item.status === "assigned");
+  const recipients = employees.filter((emp) => emp.status === "active");
+  const [form, setForm] = useState({
+    equipment: "",
+    employee: "",
+    carrier: "",
+    trackingNumber: "",
+    destinationCountry: "",
+  });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function update(field, value) {
+    setForm((current) => {
+      const next = { ...current, [field]: value };
+      // Suggest the employee's country as the destination
+      if (field === "employee" && !current.destinationCountry) {
+        const chosen = employees.find((emp) => emp._id === value);
+        if (chosen?.country) next.destinationCountry = chosen.country;
+      }
+      return next;
+    });
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (!form.equipment || !form.employee) {
+      setError("Choose the equipment and the employee.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const { shipment } = await api("/shipments", { method: "POST", body: JSON.stringify(form) });
+      onAdded(shipment);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Add shipment" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div><h2>New shipment</h2><p>Send a device to an employee and track it until it arrives.</p></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label htmlFor="ship-equipment">Equipment</label>
+            <select id="ship-equipment" value={form.equipment} onChange={(e) => update("equipment", e.target.value)} required>
+              <option value="">Select equipment...</option>
+              {shippable.map((item) => (
+                <option key={item._id} value={item._id}>{item.name} — {item.serialNumber}</option>
+              ))}
+            </select>
+            {shippable.length === 0 && <span className="cell-muted">No equipment is free to ship right now.</span>}
+          </div>
+          <div className="form-field">
+            <label htmlFor="ship-employee">Send to employee</label>
+            <select id="ship-employee" value={form.employee} onChange={(e) => update("employee", e.target.value)} required>
+              <option value="">Select employee...</option>
+              {recipients.map((emp) => (
+                <option key={emp._id} value={emp._id}>
+                  {emp.name} {emp.country ? `(${emp.country})` : ""} — {emp.email}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-row">
+            <div className="form-field">
+              <label htmlFor="ship-carrier">Carrier (optional)</label>
+              <input id="ship-carrier" value={form.carrier} onChange={(e) => update("carrier", e.target.value)} placeholder="e.g. DHL" />
+            </div>
+            <div className="form-field">
+              <label htmlFor="ship-tracking">Tracking number (optional)</label>
+              <input id="ship-tracking" value={form.trackingNumber} onChange={(e) => update("trackingNumber", e.target.value)} placeholder="e.g. 1Z999AA10123456784" />
+            </div>
+          </div>
+          <div className="form-field">
+            <label htmlFor="ship-country">Destination country</label>
+            <input id="ship-country" value={form.destinationCountry} onChange={(e) => update("destinationCountry", e.target.value)} placeholder="e.g. India" />
+          </div>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <div className="modal-actions">
+            <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
+            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Creating..." : "Create shipment"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd, onTrack, onStatus, onDelete }) {
+  const canManage = role === "admin" || role === "manager";
+  const canDelete = role === "admin";
+
+  return (
+    <section className="panel">
+      <div className="panel-heading">
+        <div><h2>All shipments</h2><p>Equipment on its way to your team, worldwide</p></div>
+        <button className="text-button" onClick={onAdd}>Add shipment <Plus size={15} /></button>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>EQUIPMENT</th>
+              <th>EMPLOYEE</th>
+              <th>DESTINATION</th>
+              <th>CARRIER</th>
+              <th>STATUS</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan="6" className="empty-state">Loading shipments...</td></tr>
+            ) : shipments.length === 0 ? (
+              <tr><td colSpan="6" className="empty-state">{search ? "No matching shipments found." : "No shipments yet. Create your first shipment with the button above."}</td></tr>
+            ) : (
+              shipments.map((shipment) => {
+                const open = shipment.status === "processing" || shipment.status === "in_transit";
+                return (
+                  <tr key={shipment._id}>
+                    <td>
+                      <div className="employee-info-cell">
+                        <strong>{shipment.equipment?.name || "Removed equipment"}</strong>
+                        <span>{shipment.equipment?.serialNumber || "—"}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="assignee-badge">
+                        <span className="assignee-avatar">{shipment.employee?.name?.[0]?.toUpperCase() || "E"}</span>
+                        <span>{shipment.employee?.name || "Removed employee"}</span>
+                      </div>
+                    </td>
+                    <td>{shipment.destinationCountry || "—"}</td>
+                    <td>
+                      <div className="employee-info-cell">
+                        <strong>{shipment.carrier || "—"}</strong>
+                        <span>{shipment.trackingNumber || ""}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`status-badge status-${shipment.status}`}>
+                        {statusLabels[shipment.status] || shipment.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="table-actions">
+                        <button className="action-btn" title="View tracking" aria-label="View tracking" onClick={() => onTrack(shipment)}>
+                          <MapPin size={14} />
+                        </button>
+                        {canManage && shipment.status === "processing" && (
+                          <button className="action-btn" title="Mark as in transit" aria-label="Mark as in transit" onClick={() => onStatus(shipment._id, "in_transit")}>
+                            <Truck size={14} />
+                          </button>
+                        )}
+                        {canManage && shipment.status === "in_transit" && (
+                          <button className="action-btn action-btn-success" title="Mark as delivered" aria-label="Mark as delivered" onClick={() => onStatus(shipment._id, "delivered")}>
+                            <Check size={14} />
+                          </button>
+                        )}
+                        {canManage && open && (
+                          <button className="action-btn action-btn-danger" title="Cancel shipment" aria-label="Cancel shipment" onClick={() => onStatus(shipment._id, "cancelled", "Shipment cancelled")}>
+                            <X size={14} />
+                          </button>
+                        )}
+                        {canDelete && !open && (
+                          <button className="action-btn action-btn-danger" title="Delete shipment" aria-label="Delete shipment" onClick={() => onDelete(shipment)}>
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="panel-footer">
+        <span>{shipments.length} shipments</span>
+        <button onClick={onClearSearch}>Clear search</button>
+      </div>
+    </section>
+  );
+}
+
+function TrackingModal({ shipment, onClose }) {
+  const progress = shipmentProgress[shipment.status] ?? 0;
+  const steps = shipment.timeline || [];
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Shipment tracking" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div>
+            <h2>{shipment.equipment?.name || "Removed equipment"}</h2>
+            <p>
+              To {shipment.employee?.name || "removed employee"}
+              {shipment.destinationCountry ? ` · ${shipment.destinationCountry}` : ""}
+            </p>
+          </div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        <div className="tracking-summary">
+          <span className={`status-badge status-${shipment.status}`}>{statusLabels[shipment.status] || shipment.status}</span>
+          <span className="cell-muted">
+            {shipment.carrier || "No carrier"}{shipment.trackingNumber ? ` · ${shipment.trackingNumber}` : ""}
+          </span>
+        </div>
+        <div className="progress-track"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
+        <ol className="timeline">
+          {steps.map((step, index) => (
+            <li className="timeline-item" key={`${step.status}-${index}`}>
+              <span className="timeline-dot" />
+              <div className="timeline-body">
+                <strong>{statusLabels[step.status] || step.status}</strong>
+                {step.note && <p>{step.note}</p>}
+                <small>{step.at ? new Date(step.at).toLocaleString() : ""}</small>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <div className="modal-actions">
+          <button type="button" className="secondary-button" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DeleteConfirmModal({ title, message, itemName, onClose, onConfirm, loading }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -902,24 +1148,45 @@ function Dashboard({ user, onSignOut }) {
   const [deletingRequest, setDeletingRequest] = useState(null);
   const [isDeletingRequest, setIsDeletingRequest] = useState(false);
 
+  // Shipments state
+  const [shipments, setShipments] = useState([]);
+  const [loadingShipments, setLoadingShipments] = useState(true);
+  const [showAddShipment, setShowAddShipment] = useState(false);
+  const [trackingShipment, setTrackingShipment] = useState(null);
+
   useEffect(() => {
     api("/equipment")
       .then(({ items }) => setEquipment(items || []))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoadingEquipment(false));
 
     api("/employees")
       .then(({ employees: emps }) => setEmployees(emps || []))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoadingEmployees(false));
 
     api("/requests")
       .then(({ requests: reqs }) => setRequests(reqs || []))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoadingRequests(false));
+
+    api("/shipments")
+      .then(({ shipments: list }) => setShipments(list || []))
+      .catch(() => { })
+      .finally(() => setLoadingShipments(false));
   }, []);
 
-  const shipments = [];
+  // Shipments shown in the dashboard tracking panel: the latest ones still on the way
+  const panelShipments = shipments
+    .filter((s) => s.status === "processing" || s.status === "in_transit")
+    .slice(0, 4)
+    .map((s) => ({
+      _id: s._id,
+      item: s.equipment?.name || "Equipment",
+      destination: `${s.employee?.name || "Employee"}${s.destinationCountry ? ` · ${s.destinationCountry}` : ""}`,
+      progress: shipmentProgress[s.status] ?? 0,
+      status: statusLabels[s.status] || s.status,
+    }));
 
   const visibleEquipment = equipment.filter((item) => {
     const assigneeName = item.assignedTo?.name || "";
@@ -940,6 +1207,12 @@ function Dashboard({ user, onSignOut }) {
       .toLowerCase()
       .includes(search.toLowerCase());
   });
+
+  const visibleShipments = shipments.filter((s) =>
+    `${s.equipment?.name || ""} ${s.equipment?.serialNumber || ""} ${s.employee?.name || ""} ${s.carrier || ""} ${s.trackingNumber || ""} ${s.destinationCountry || ""} ${s.status}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
 
   const activeEmployeesCount = employees.filter((emp) => emp.status === "active").length;
   const pendingRequestsCount = requests.filter((r) => r.status === "pending").length;
@@ -1014,6 +1287,37 @@ function Dashboard({ user, onSignOut }) {
       alert(err.message || "Failed to delete request");
     } finally {
       setIsDeletingRequest(false);
+    }
+  }
+
+  // Shipment actions (the server also updates the equipment, so reload it afterwards)
+  function refreshEquipment() {
+    api("/equipment")
+      .then(({ items }) => setEquipment(items || []))
+      .catch(() => { });
+  }
+
+  async function handleShipmentStatus(id, status, note = "") {
+    try {
+      const { shipment } = await api(`/shipments/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, note }),
+      });
+      setShipments((list) => list.map((s) => (s._id === id ? shipment : s)));
+      setTrackingShipment((current) => (current && current._id === id ? shipment : current));
+      refreshEquipment();
+    } catch (err) {
+      alert(err.message || "Failed to update shipment");
+    }
+  }
+
+  async function handleDeleteShipment(shipment) {
+    if (!window.confirm("Delete this shipment record?")) return;
+    try {
+      await api(`/shipments/${shipment._id}`, { method: "DELETE" });
+      setShipments((list) => list.filter((s) => s._id !== shipment._id));
+    } catch (err) {
+      alert(err.message || "Failed to delete shipment");
     }
   }
 
@@ -1125,6 +1429,24 @@ function Dashboard({ user, onSignOut }) {
         />
       )}
 
+      {/* Shipment Modals */}
+      {showAddShipment && (
+        <AddShipmentModal
+          equipment={equipment}
+          employees={employees}
+          onClose={() => setShowAddShipment(false)}
+          onAdded={(shipment) => {
+            setShipments((list) => [shipment, ...list]);
+            setShowAddShipment(false);
+            refreshEquipment();
+          }}
+        />
+      )}
+
+      {trackingShipment && (
+        <TrackingModal shipment={trackingShipment} onClose={() => setTrackingShipment(null)} />
+      )}
+
       <main className="main-content">
         <header className="topbar">
           <button className="mobile-menu" onClick={() => setMenuOpen(true)}><Menu size={22} /></button>
@@ -1135,7 +1457,7 @@ function Dashboard({ user, onSignOut }) {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={activePage === "Equipment" ? "Search equipment..." : activePage === "Employees" ? "Search employees..." : activePage === "Requests" ? "Search requests..." : "Search..."}
+                placeholder={activePage === "Equipment" ? "Search equipment..." : activePage === "Employees" ? "Search employees..." : activePage === "Requests" ? "Search requests..." : activePage === "Shipments" ? "Search shipments..." : "Search..."}
                 aria-label="Search"
               />
             </div>
@@ -1153,10 +1475,12 @@ function Dashboard({ user, onSignOut }) {
                 {activePage === "Dashboard"
                   ? "Your workspace overview will appear here as records are added."
                   : activePage === "Employees"
-                  ? "Manage your global workforce and employee records in one place."
-                  : activePage === "Requests"
-                  ? "Review, approve, and manage equipment requests submitted by employees."
-                  : `Manage ${activePage.toLowerCase()} in one place.`}
+                    ? "Manage your global workforce and employee records in one place."
+                    : activePage === "Requests"
+                      ? "Review, approve, and manage equipment requests submitted by employees."
+                      : activePage === "Shipments"
+                        ? "Create shipments, follow their progress and confirm deliveries."
+                        : `Manage ${activePage.toLowerCase()} in one place.`}
               </p>
             </div>
             <button
@@ -1165,6 +1489,7 @@ function Dashboard({ user, onSignOut }) {
                 if (activePage === "Employees") setShowAddEmployee(true);
                 else if (activePage === "Equipment" || activePage === "Dashboard") setShowAddEquipment(true);
                 else if (activePage === "Requests") setShowAddRequest(true);
+                else if (activePage === "Shipments") setShowAddShipment(true);
                 else alert("We'll add this feature when we build the forms.");
               }}
             >
@@ -1215,6 +1540,18 @@ function Dashboard({ user, onSignOut }) {
               onUpdateStatus={handleUpdateRequestStatus}
               onDelete={(req) => setDeletingRequest(req)}
             />
+          ) : activePage === "Shipments" ? (
+            <ShipmentsTable
+              shipments={visibleShipments}
+              loading={loadingShipments}
+              search={search}
+              role={user.role}
+              onClearSearch={() => setSearch("")}
+              onAdd={() => setShowAddShipment(true)}
+              onTrack={(shipment) => setTrackingShipment(shipment)}
+              onStatus={handleShipmentStatus}
+              onDelete={handleDeleteShipment}
+            />
           ) : (
             <section className="content-grid">
               <article className="panel requests-panel">
@@ -1263,12 +1600,12 @@ function Dashboard({ user, onSignOut }) {
                   <button className="icon-button" onClick={() => setActivePage("Shipments")} aria-label="View shipments"><ArrowUpRight size={18} /></button>
                 </div>
                 <div className="shipment-list">
-                  {shipments.length === 0 ? (
+                  {panelShipments.length === 0 ? (
                     <div className="empty-state shipment-empty">
-                      <Package size={27} /><p>No shipments yet.</p><span>Shipment details will appear here when added.</span>
+                      <Package size={27} /><p>No active shipments.</p><span>Shipment details will appear here when added.</span>
                     </div>
                   ) : (
-                    shipments.map((shipment) => (
+                    panelShipments.map((shipment) => (
                       <div className="shipment-item" key={shipment._id}>
                         <div className="shipment-product-icon"><Package size={20} /></div>
                         <div className="shipment-details">
