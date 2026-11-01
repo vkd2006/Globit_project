@@ -8,6 +8,7 @@ import equipmentRoutes from './routes/equipmentRoutes.js'
 import employeeRoutes from './routes/employeeRoutes.js'
 import requestRoutes from './routes/requestRoutes.js'
 import shipmentRoutes from './routes/shipmentRoutes.js'
+import returnRoutes from './routes/returnRoutes.js'
 
 const app = express()
 
@@ -16,6 +17,7 @@ app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }))
 app.use(express.json())
 app.use(cookieParser())
 app.use(morgan('dev'))
+app.use('/api/returns', returnRoutes)
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
 app.use('/api/auth', authRoutes)

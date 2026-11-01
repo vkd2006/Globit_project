@@ -3096,3 +3096,22 @@ td {
   color: #9299aa;
   font-size: 10px;
 }
+
+/* =========================================
+   RETURNS: STATUS COLOURS
+========================================= */
+
+.status-requested {
+  color: #b7791f;
+  background: #fff4e5;
+}
+
+.status-received {
+  color: #3b7bd0;
+  background: #eaf3ff;
+}
+
+.status-completed {
+  color: #168d68;
+  background: #e6f8f0;
+}

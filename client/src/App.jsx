@@ -44,6 +44,9 @@ const statusLabels = {
   processing: "Processing",
   delivered: "Delivered",
   cancelled: "Cancelled",
+  requested: "Requested",
+  received: "Received",
+  completed: "Completed",
 };
 
 // How far along each shipment status is (used by the progress bars)
@@ -1033,6 +1036,211 @@ function TrackingModal({ shipment, onClose }) {
   );
 }
 
+function AddReturnModal({ equipment = [], onClose, onAdded }) {
+  // Only devices currently assigned to someone can come back
+  const returnable = equipment.filter((item) => item.status === "assigned" && item.assignedTo);
+  const [form, setForm] = useState({ equipment: "", reason: "", condition: "good" });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function update(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (!form.equipment) {
+      setError("Choose the equipment that is being returned.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const { equipmentReturn } = await api("/returns", { method: "POST", body: JSON.stringify(form) });
+      onAdded(equipmentReturn);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Add return" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div><h2>New return</h2><p>Record a device that is coming back from an employee.</p></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label htmlFor="ret-equipment">Equipment</label>
+            <select id="ret-equipment" value={form.equipment} onChange={(e) => update("equipment", e.target.value)} required>
+              <option value="">Select equipment...</option>
+              {returnable.map((item) => (
+                <option key={item._id} value={item._id}>
+                  {item.name} — {item.assignedTo?.name || "assigned employee"}
+                </option>
+              ))}
+            </select>
+            {returnable.length === 0 && <span className="cell-muted">No equipment is assigned to an employee right now.</span>}
+          </div>
+          <div className="form-field">
+            <label htmlFor="ret-condition">Expected condition</label>
+            <select id="ret-condition" value={form.condition} onChange={(e) => update("condition", e.target.value)}>
+              <option value="good">Good</option>
+              <option value="damaged">Damaged</option>
+            </select>
+          </div>
+          <div className="form-field">
+            <label htmlFor="ret-reason">Reason (optional)</label>
+            <textarea id="ret-reason" value={form.reason} onChange={(e) => update("reason", e.target.value)} placeholder="e.g. Employee is leaving the company" />
+          </div>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <div className="modal-actions">
+            <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
+            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving..." : "Create return"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function CompleteReturnModal({ item, onClose, onSubmit }) {
+  const [condition, setCondition] = useState(item.condition || "good");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setSaving(true);
+    const ok = await onSubmit(item._id, { condition, notes });
+    setSaving(false);
+    if (ok) onClose();
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal modal-small" role="dialog" aria-modal="true" aria-label="Complete return" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div><h2>Inspect and complete</h2><p>{item.equipment?.name || "This device"} will go back to stock, or be retired if damaged.</p></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label htmlFor="done-condition">Condition after inspection</label>
+            <select id="done-condition" value={condition} onChange={(e) => setCondition(e.target.value)}>
+              <option value="good">Good (back to Available)</option>
+              <option value="damaged">Damaged (Retired)</option>
+            </select>
+          </div>
+          <div className="form-field">
+            <label htmlFor="done-notes">Notes (optional)</label>
+            <textarea id="done-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything worth recording about the inspection" />
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
+            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving..." : "Complete return"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, onReceive, onComplete, onCancel, onDelete }) {
+  const canManage = role === "admin" || role === "manager";
+  const canDelete = role === "admin";
+
+  return (
+    <section className="panel">
+      <div className="panel-heading">
+        <div><h2>All returns</h2><p>Devices coming back from your team</p></div>
+        <button className="text-button" onClick={onAdd}>Add return <Plus size={15} /></button>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>EQUIPMENT</th>
+              <th>EMPLOYEE</th>
+              <th>REASON</th>
+              <th>CONDITION</th>
+              <th>STATUS</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan="6" className="empty-state">Loading returns...</td></tr>
+            ) : returns.length === 0 ? (
+              <tr><td colSpan="6" className="empty-state">{search ? "No matching returns found." : "No returns yet. Record your first return with the button above."}</td></tr>
+            ) : (
+              returns.map((item) => {
+                const open = item.status === "requested" || item.status === "received";
+                return (
+                  <tr key={item._id}>
+                    <td>
+                      <div className="employee-info-cell">
+                        <strong>{item.equipment?.name || "Removed equipment"}</strong>
+                        <span>{item.equipment?.serialNumber || "—"}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="assignee-badge">
+                        <span className="assignee-avatar">{item.employee?.name?.[0]?.toUpperCase() || "E"}</span>
+                        <span>{item.employee?.name || "Removed employee"}</span>
+                      </div>
+                    </td>
+                    <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.reason}>
+                      {item.reason || "—"}
+                    </td>
+                    <td className="cell-capitalize">{item.condition}</td>
+                    <td>
+                      <span className={`status-badge status-${item.status}`}>
+                        {statusLabels[item.status] || item.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="table-actions">
+                        {canManage && item.status === "requested" && (
+                          <button className="action-btn" title="Mark as received" aria-label="Mark as received" onClick={() => onReceive(item._id)}>
+                            <Package size={14} />
+                          </button>
+                        )}
+                        {canManage && item.status === "received" && (
+                          <button className="action-btn action-btn-success" title="Inspect and complete" aria-label="Inspect and complete" onClick={() => onComplete(item)}>
+                            <Check size={14} />
+                          </button>
+                        )}
+                        {canManage && open && (
+                          <button className="action-btn action-btn-danger" title="Cancel return" aria-label="Cancel return" onClick={() => onCancel(item._id)}>
+                            <X size={14} />
+                          </button>
+                        )}
+                        {canDelete && !open && (
+                          <button className="action-btn action-btn-danger" title="Delete return" aria-label="Delete return" onClick={() => onDelete(item)}>
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="panel-footer">
+        <span>{returns.length} returns</span>
+        <button onClick={onClearSearch}>Clear search</button>
+      </div>
+    </section>
+  );
+}
+
 function DeleteConfirmModal({ title, message, itemName, onClose, onConfirm, loading }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -1154,6 +1362,12 @@ function Dashboard({ user, onSignOut }) {
   const [showAddShipment, setShowAddShipment] = useState(false);
   const [trackingShipment, setTrackingShipment] = useState(null);
 
+  // Returns state
+  const [returnsList, setReturnsList] = useState([]);
+  const [loadingReturns, setLoadingReturns] = useState(true);
+  const [showAddReturn, setShowAddReturn] = useState(false);
+  const [completingReturn, setCompletingReturn] = useState(null);
+
   useEffect(() => {
     api("/equipment")
       .then(({ items }) => setEquipment(items || []))
@@ -1174,6 +1388,11 @@ function Dashboard({ user, onSignOut }) {
       .then(({ shipments: list }) => setShipments(list || []))
       .catch(() => { })
       .finally(() => setLoadingShipments(false));
+
+    api("/returns")
+      .then(({ returns: list }) => setReturnsList(list || []))
+      .catch(() => { })
+      .finally(() => setLoadingReturns(false));
   }, []);
 
   // Shipments shown in the dashboard tracking panel: the latest ones still on the way
@@ -1210,6 +1429,12 @@ function Dashboard({ user, onSignOut }) {
 
   const visibleShipments = shipments.filter((s) =>
     `${s.equipment?.name || ""} ${s.equipment?.serialNumber || ""} ${s.employee?.name || ""} ${s.carrier || ""} ${s.trackingNumber || ""} ${s.destinationCountry || ""} ${s.status}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
+  const visibleReturns = returnsList.filter((r) =>
+    `${r.equipment?.name || ""} ${r.equipment?.serialNumber || ""} ${r.employee?.name || ""} ${r.reason || ""} ${r.condition || ""} ${r.status}`
       .toLowerCase()
       .includes(search.toLowerCase())
   );
@@ -1318,6 +1543,32 @@ function Dashboard({ user, onSignOut }) {
       setShipments((list) => list.filter((s) => s._id !== shipment._id));
     } catch (err) {
       alert(err.message || "Failed to delete shipment");
+    }
+  }
+
+  // Return actions (completing a return puts the equipment back in stock or retires it)
+  async function handleReturnStatus(id, status, extra = {}) {
+    try {
+      const { equipmentReturn } = await api(`/returns/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, ...extra }),
+      });
+      setReturnsList((list) => list.map((r) => (r._id === id ? equipmentReturn : r)));
+      if (status === "completed") refreshEquipment();
+      return true;
+    } catch (err) {
+      alert(err.message || "Failed to update return");
+      return false;
+    }
+  }
+
+  async function handleDeleteReturn(item) {
+    if (!window.confirm("Delete this return record?")) return;
+    try {
+      await api(`/returns/${item._id}`, { method: "DELETE" });
+      setReturnsList((list) => list.filter((r) => r._id !== item._id));
+    } catch (err) {
+      alert(err.message || "Failed to delete return");
     }
   }
 
@@ -1447,6 +1698,26 @@ function Dashboard({ user, onSignOut }) {
         <TrackingModal shipment={trackingShipment} onClose={() => setTrackingShipment(null)} />
       )}
 
+      {/* Return Modals */}
+      {showAddReturn && (
+        <AddReturnModal
+          equipment={equipment}
+          onClose={() => setShowAddReturn(false)}
+          onAdded={(equipmentReturn) => {
+            setReturnsList((list) => [equipmentReturn, ...list]);
+            setShowAddReturn(false);
+          }}
+        />
+      )}
+
+      {completingReturn && (
+        <CompleteReturnModal
+          item={completingReturn}
+          onClose={() => setCompletingReturn(null)}
+          onSubmit={(id, extra) => handleReturnStatus(id, "completed", extra)}
+        />
+      )}
+
       <main className="main-content">
         <header className="topbar">
           <button className="mobile-menu" onClick={() => setMenuOpen(true)}><Menu size={22} /></button>
@@ -1457,7 +1728,7 @@ function Dashboard({ user, onSignOut }) {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={activePage === "Equipment" ? "Search equipment..." : activePage === "Employees" ? "Search employees..." : activePage === "Requests" ? "Search requests..." : activePage === "Shipments" ? "Search shipments..." : "Search..."}
+                placeholder={activePage === "Equipment" ? "Search equipment..." : activePage === "Employees" ? "Search employees..." : activePage === "Requests" ? "Search requests..." : activePage === "Shipments" ? "Search shipments..." : activePage === "Returns" ? "Search returns..." : "Search..."}
                 aria-label="Search"
               />
             </div>
@@ -1480,7 +1751,9 @@ function Dashboard({ user, onSignOut }) {
                       ? "Review, approve, and manage equipment requests submitted by employees."
                       : activePage === "Shipments"
                         ? "Create shipments, follow their progress and confirm deliveries."
-                        : `Manage ${activePage.toLowerCase()} in one place.`}
+                        : activePage === "Returns"
+                          ? "Record returned devices, inspect them and put them back in stock."
+                          : `Manage ${activePage.toLowerCase()} in one place.`}
               </p>
             </div>
             <button
@@ -1490,6 +1763,7 @@ function Dashboard({ user, onSignOut }) {
                 else if (activePage === "Equipment" || activePage === "Dashboard") setShowAddEquipment(true);
                 else if (activePage === "Requests") setShowAddRequest(true);
                 else if (activePage === "Shipments") setShowAddShipment(true);
+                else if (activePage === "Returns") setShowAddReturn(true);
                 else alert("We'll add this feature when we build the forms.");
               }}
             >
@@ -1551,6 +1825,19 @@ function Dashboard({ user, onSignOut }) {
               onTrack={(shipment) => setTrackingShipment(shipment)}
               onStatus={handleShipmentStatus}
               onDelete={handleDeleteShipment}
+            />
+          ) : activePage === "Returns" ? (
+            <ReturnsTable
+              returns={visibleReturns}
+              loading={loadingReturns}
+              search={search}
+              role={user.role}
+              onClearSearch={() => setSearch("")}
+              onAdd={() => setShowAddReturn(true)}
+              onReceive={(id) => handleReturnStatus(id, "received")}
+              onComplete={(item) => setCompletingReturn(item)}
+              onCancel={(id) => handleReturnStatus(id, "cancelled")}
+              onDelete={handleDeleteReturn}
             />
           ) : (
             <section className="content-grid">
