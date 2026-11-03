@@ -11,6 +11,11 @@ const loginSchema = z.object({
     password: z.string().min(1),
 })
 
+const passwordSchema = z.object({
+    currentPassword: z.string().min(1, 'Enter your current password'),
+    newPassword: z.string().min(8, 'The new password must be at least 8 characters'),
+})
+
 const cookieOptions = {
     httpOnly: true,
     sameSite: 'lax',
@@ -27,17 +32,32 @@ router.post('/login', async (req, res) => {
     if (!user || !(await user.matchPassword(password))) {
         return res.status(401).json({ message: 'Incorrect email or password' })
     }
+    if (user.active === false) {
+        return res.status(403).json({ message: 'This account has been deactivated. Contact an admin.' })
+    }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' })
     res.cookie('token', token, cookieOptions)
-    res.json({
-        user: { id: user._id, name: user.name, email: user.email, role: user.role }
-    })
+    res.json({ user: { id: user._id, name: user.name, email: user.email, role: user.role } })
 })
 
 router.get('/me', protect, (req, res) => {
     const { _id, name, email, role } = req.user
     res.json({ user: { id: _id, name, email, role } })
+})
+
+router.post('/change-password', protect, async (req, res) => {
+    const parsed = passwordSchema.safeParse(req.body)
+    if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0].message })
+    }
+    const user = await User.findById(req.user._id).select('+password')
+    if (!(await user.matchPassword(parsed.data.currentPassword))) {
+        return res.status(401).json({ message: 'Your current password is incorrect' })
+    }
+    user.password = parsed.data.newPassword
+    await user.save()
+    res.json({ message: 'Password updated' })
 })
 
 router.post('/logout', (req, res) => {

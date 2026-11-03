@@ -7,15 +7,17 @@ export async function protect(req, res, next) {
         if (!token) return res.status(401).json({ message: 'Not authenticated' })
         const { id } = jwt.verify(token, process.env.JWT_SECRET)
         const user = await User.findById(id)
-        if (!user) return res.status(401).json({ message: 'User no longer exists'})
+        if (!user || user.active === false) {
+            return res.status(401).json({ message: 'This account is not available.' })
+        }
         req.user = user
-        next()    
+        next()
     } catch {
-        res.status(401).json({ message: 'Invalid or expired session'})
+        res.status(401).json({ message: 'Invalid or expired session' })
     }
 }
 
 export const restrictTo = (...roles) => (req, res, next) =>
     roles.includes(req.user.role)
-     ? next()
-     : res.status(403).json({ message: 'You do not have permission '})
+        ? next()
+        : res.status(403).json({ message: 'You do not have permission ' })

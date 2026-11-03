@@ -26,6 +26,7 @@ const navigation = [
   { label: "Requests", icon: ClipboardList },
   { label: "Shipments", icon: Truck },
   { label: "Returns", icon: RotateCcw },
+  { label: "Users", icon: ShieldCheck },
 ];
 
 const equipmentTypes = ["laptop", "monitor", "phone", "keyboard", "mouse", "headset", "other"];
@@ -1241,6 +1242,305 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
   );
 }
 
+const roleOptions = ["admin", "manager", "employee"];
+
+function AddUserModal({ onClose, onAdded }) {
+  const [form, setForm] = useState({ name: "", email: "", role: "employee", password: "" });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function update(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const { user: created } = await api("/users", { method: "POST", body: JSON.stringify(form) });
+      onAdded(created);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Add user" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div><h2>Add user</h2><p>Create a sign-in account for a team member.</p></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label htmlFor="user-name">Full name</label>
+            <input id="user-name" value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Priya Sharma" required />
+          </div>
+          <div className="form-field">
+            <label htmlFor="user-email">Email address</label>
+            <input id="user-email" type="email" value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="e.g. priya@company.com" required />
+          </div>
+          <div className="form-field">
+            <label htmlFor="user-role">Role</label>
+            <select id="user-role" value={form.role} onChange={(e) => update("role", e.target.value)}>
+              {roleOptions.map((role) => <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</option>)}
+            </select>
+          </div>
+          <div className="form-field">
+            <label htmlFor="user-password">Temporary password</label>
+            <input id="user-password" value={form.password} onChange={(e) => update("password", e.target.value)} placeholder="At least 8 characters" minLength={8} required />
+            <span className="cell-muted">Share it privately. The user can change it after signing in.</span>
+          </div>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <div className="modal-actions">
+            <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
+            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Creating..." : "Create user"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditUserModal({ item, isSelf, onClose, onSaved }) {
+  const [form, setForm] = useState({ name: item.name || "", role: item.role, active: item.active !== false });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const { user: updated } = await api(`/users/${item.id}`, { method: "PATCH", body: JSON.stringify(form) });
+      onSaved(updated);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Edit user" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div><h2>Edit user</h2><p>{item.email}</p></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label htmlFor="edit-user-name">Full name</label>
+            <input id="edit-user-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          </div>
+          <div className="form-row">
+            <div className="form-field">
+              <label htmlFor="edit-user-role">Role</label>
+              <select id="edit-user-role" value={form.role} disabled={isSelf} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+                {roleOptions.map((role) => <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</option>)}
+              </select>
+            </div>
+            <div className="form-field">
+              <label htmlFor="edit-user-active">Account</label>
+              <select id="edit-user-active" value={form.active ? "active" : "inactive"} disabled={isSelf} onChange={(e) => setForm({ ...form, active: e.target.value === "active" })}>
+                <option value="active">Active</option>
+                <option value="inactive">Deactivated</option>
+              </select>
+            </div>
+          </div>
+          {isSelf && <span className="cell-muted">You cannot change your own role or deactivate your own account.</span>}
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <div className="modal-actions">
+            <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
+            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving..." : "Save changes"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ResetPasswordModal({ item, onClose }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await api(`/users/${item.id}/password`, { method: "PATCH", body: JSON.stringify({ password }) });
+      setDone(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal modal-small" role="dialog" aria-modal="true" aria-label="Reset password" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div><h2>Reset password</h2><p>Set a new temporary password for {item.name}.</p></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        {done ? (
+          <>
+            <p className="signin-message" role="status">Password updated. Share the new password with {item.name} privately.</p>
+            <div className="modal-actions"><button type="button" className="primary-button" onClick={onClose}>Done</button></div>
+          </>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div className="form-field">
+              <label htmlFor="reset-password">New password</label>
+              <input id="reset-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" minLength={8} required />
+            </div>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <div className="modal-actions">
+              <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
+              <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving..." : "Reset password"}</button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ChangePasswordModal({ onClose }) {
+  const [form, setForm] = useState({ currentPassword: "", newPassword: "", confirm: "" });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (form.newPassword !== form.confirm) {
+      setError("The new passwords do not match.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await api("/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({ currentPassword: form.currentPassword, newPassword: form.newPassword }),
+      });
+      setDone(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal modal-small" role="dialog" aria-modal="true" aria-label="Change password" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div><h2>Change password</h2><p>Choose a new password for your account.</p></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        {done ? (
+          <>
+            <p className="signin-message" role="status">Your password has been updated.</p>
+            <div className="modal-actions"><button type="button" className="primary-button" onClick={onClose}>Done</button></div>
+          </>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div className="form-field">
+              <label htmlFor="cp-current">Current password</label>
+              <input id="cp-current" type="password" autoComplete="current-password" value={form.currentPassword} onChange={(e) => setForm({ ...form, currentPassword: e.target.value })} required />
+            </div>
+            <div className="form-field">
+              <label htmlFor="cp-new">New password</label>
+              <input id="cp-new" type="password" autoComplete="new-password" minLength={8} value={form.newPassword} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} placeholder="At least 8 characters" required />
+            </div>
+            <div className="form-field">
+              <label htmlFor="cp-confirm">Confirm new password</label>
+              <input id="cp-confirm" type="password" autoComplete="new-password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} required />
+            </div>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <div className="modal-actions">
+              <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
+              <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving..." : "Update password"}</button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function UsersTable({ users, loading, search, currentUserId, onClearSearch, onAdd, onEdit, onReset }) {
+  return (
+    <section className="panel">
+      <div className="panel-heading">
+        <div><h2>All users</h2><p>People who can sign in to Globit, and what they can do</p></div>
+        <button className="text-button" onClick={onAdd}>Add user <Plus size={15} /></button>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>USER</th>
+              <th>EMAIL</th>
+              <th>ROLE</th>
+              <th>ACCOUNT</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan="5" className="empty-state">Loading users...</td></tr>
+            ) : users.length === 0 ? (
+              <tr><td colSpan="5" className="empty-state">{search ? "No matching users found." : "No users yet."}</td></tr>
+            ) : (
+              users.map((item) => (
+                <tr key={item.id}>
+                  <td>
+                    <div className="employee-cell">
+                      <span className="employee-avatar">{item.name?.[0]?.toUpperCase() || "U"}</span>
+                      <span className="cell-strong">{item.name}{item.id === currentUserId ? " (you)" : ""}</span>
+                    </div>
+                  </td>
+                  <td>{item.email}</td>
+                  <td><span className={`status-badge role-${item.role}`}>{item.role}</span></td>
+                  <td>
+                    <span className={`status-badge status-${item.active ? "active" : "inactive"}`}>
+                      {item.active ? "Active" : "Deactivated"}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="table-actions">
+                      <button className="action-btn" title="Edit user" aria-label="Edit user" onClick={() => onEdit(item)}>
+                        <Pencil size={14} />
+                      </button>
+                      <button className="action-btn" title="Reset password" aria-label="Reset password" onClick={() => onReset(item)}>
+                        <LockKeyhole size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="panel-footer">
+        <span>{users.length} users</span>
+        <button onClick={onClearSearch}>Clear search</button>
+      </div>
+    </section>
+  );
+}
+
 function DeleteConfirmModal({ title, message, itemName, onClose, onConfirm, loading }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -1368,6 +1668,16 @@ function Dashboard({ user, onSignOut }) {
   const [showAddReturn, setShowAddReturn] = useState(false);
   const [completingReturn, setCompletingReturn] = useState(null);
 
+  // Users state (only admins can open the Users page)
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(user.role === "admin");
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [resettingUser, setResettingUser] = useState(null);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+
+  const visibleNavigation = navigation.filter((entry) => entry.label !== "Users" || user.role === "admin");
+
   useEffect(() => {
     api("/equipment")
       .then(({ items }) => setEquipment(items || []))
@@ -1393,7 +1703,14 @@ function Dashboard({ user, onSignOut }) {
       .then(({ returns: list }) => setReturnsList(list || []))
       .catch(() => { })
       .finally(() => setLoadingReturns(false));
-  }, []);
+
+    if (user.role === "admin") {
+      api("/users")
+        .then(({ users: list }) => setUsers(list || []))
+        .catch(() => { })
+        .finally(() => setLoadingUsers(false));
+    }
+  }, [user.role]);
 
   // Shipments shown in the dashboard tracking panel: the latest ones still on the way
   const panelShipments = shipments
@@ -1435,6 +1752,12 @@ function Dashboard({ user, onSignOut }) {
 
   const visibleReturns = returnsList.filter((r) =>
     `${r.equipment?.name || ""} ${r.equipment?.serialNumber || ""} ${r.employee?.name || ""} ${r.reason || ""} ${r.condition || ""} ${r.status}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
+  const visibleUsers = users.filter((u) =>
+    `${u.name} ${u.email} ${u.role} ${u.active ? "active" : "deactivated"}`
       .toLowerCase()
       .includes(search.toLowerCase())
   );
@@ -1577,7 +1900,7 @@ function Dashboard({ user, onSignOut }) {
       <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>
         <div className="brand"><div className="brand-icon"><Package size={23} /></div><span>globit<span className="brand-dot">.</span></span><button className="mobile-close" onClick={() => setMenuOpen(false)}><X size={20} /></button></div>
         <div className="workspace-label">WORKSPACE</div>
-        <nav className="navigation">{navigation.map(({ label, icon: Icon }) => <button key={label} className={`nav-item ${activePage === label ? "nav-active" : ""}`} onClick={() => { setActivePage(label); setMenuOpen(false); setSearch(""); }}><Icon size={19} /><span>{label}</span></button>)}</nav>
+        <nav className="navigation">{visibleNavigation.map(({ label, icon: Icon }) => <button key={label} className={`nav-item ${activePage === label ? "nav-active" : ""}`} onClick={() => { setActivePage(label); setMenuOpen(false); setSearch(""); }}><Icon size={19} /><span>{label}</span></button>)}</nav>
         <div className="sidebar-bottom"><div className="help-card"><div className="help-icon">✦</div><strong>Need a hand?</strong><p>Manage your global equipment with ease.</p><button onClick={() => alert("Help centre coming soon!")}>Visit help centre ↗</button></div><div className="profile"><div className="avatar avatar-purple">{user.name[0]}</div><div className="profile-info"><strong>{user.name}</strong><span>{user.role}</span></div><button className="dashboard-signout" onClick={onSignOut} title="Sign out" aria-label="Sign out"><ArrowRight size={16} /></button></div></div>
       </aside>
       {menuOpen && <button className="mobile-overlay" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
@@ -1718,6 +2041,33 @@ function Dashboard({ user, onSignOut }) {
         />
       )}
 
+      {/* User Modals */}
+      {showAddUser && (
+        <AddUserModal
+          onClose={() => setShowAddUser(false)}
+          onAdded={(created) => {
+            setUsers((list) => [created, ...list]);
+            setShowAddUser(false);
+          }}
+        />
+      )}
+
+      {editingUser && (
+        <EditUserModal
+          item={editingUser}
+          isSelf={editingUser.id === user.id}
+          onClose={() => setEditingUser(null)}
+          onSaved={(updated) => {
+            setUsers((list) => list.map((u) => (u.id === updated.id ? updated : u)));
+            setEditingUser(null);
+          }}
+        />
+      )}
+
+      {resettingUser && <ResetPasswordModal item={resettingUser} onClose={() => setResettingUser(null)} />}
+
+      {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
+
       <main className="main-content">
         <header className="topbar">
           <button className="mobile-menu" onClick={() => setMenuOpen(true)}><Menu size={22} /></button>
@@ -1728,10 +2078,11 @@ function Dashboard({ user, onSignOut }) {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={activePage === "Equipment" ? "Search equipment..." : activePage === "Employees" ? "Search employees..." : activePage === "Requests" ? "Search requests..." : activePage === "Shipments" ? "Search shipments..." : activePage === "Returns" ? "Search returns..." : "Search..."}
+                placeholder={activePage === "Equipment" ? "Search equipment..." : activePage === "Employees" ? "Search employees..." : activePage === "Requests" ? "Search requests..." : activePage === "Shipments" ? "Search shipments..." : activePage === "Returns" ? "Search returns..." : activePage === "Users" ? "Search users..." : "Search..."}
                 aria-label="Search"
               />
             </div>
+            <button className="notification-button" aria-label="Change password" title="Change password" onClick={() => setShowChangePassword(true)}><LockKeyhole size={18} /></button>
             <button className="notification-button" aria-label="Notifications" onClick={() => alert("No notifications yet.")}><Bell size={19} /></button>
             <div className="avatar avatar-light">{user.name[0]}</div>
           </div>
@@ -1753,7 +2104,9 @@ function Dashboard({ user, onSignOut }) {
                         ? "Create shipments, follow their progress and confirm deliveries."
                         : activePage === "Returns"
                           ? "Record returned devices, inspect them and put them back in stock."
-                          : `Manage ${activePage.toLowerCase()} in one place.`}
+                          : activePage === "Users"
+                            ? "Create accounts, set roles and control who can sign in."
+                            : `Manage ${activePage.toLowerCase()} in one place.`}
               </p>
             </div>
             <button
@@ -1764,6 +2117,7 @@ function Dashboard({ user, onSignOut }) {
                 else if (activePage === "Requests") setShowAddRequest(true);
                 else if (activePage === "Shipments") setShowAddShipment(true);
                 else if (activePage === "Returns") setShowAddReturn(true);
+                else if (activePage === "Users") setShowAddUser(true);
                 else alert("We'll add this feature when we build the forms.");
               }}
             >
@@ -1838,6 +2192,17 @@ function Dashboard({ user, onSignOut }) {
               onComplete={(item) => setCompletingReturn(item)}
               onCancel={(id) => handleReturnStatus(id, "cancelled")}
               onDelete={handleDeleteReturn}
+            />
+          ) : activePage === "Users" ? (
+            <UsersTable
+              users={visibleUsers}
+              loading={loadingUsers}
+              search={search}
+              currentUserId={user.id}
+              onClearSearch={() => setSearch("")}
+              onAdd={() => setShowAddUser(true)}
+              onEdit={(item) => setEditingUser(item)}
+              onReset={(item) => setResettingUser(item)}
             />
           ) : (
             <section className="content-grid">

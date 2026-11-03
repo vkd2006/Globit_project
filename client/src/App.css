@@ -3115,3 +3115,35 @@ td {
   color: #168d68;
   background: #e6f8f0;
 }
+
+/* =========================================
+   USERS: ROLE BADGES
+========================================= */
+
+.role-admin {
+  color: #6554d9;
+  background: #f0edff;
+  text-transform: capitalize;
+}
+
+.role-manager {
+  color: #3b7bd0;
+  background: #eaf3ff;
+  text-transform: capitalize;
+}
+
+.role-employee {
+  color: #7d8598;
+  background: #f0f1f6;
+  text-transform: capitalize;
+}
+
+.status-active {
+  color: #168d68;
+  background: #e6f8f0;
+}
+
+.status-inactive {
+  color: #b3372f;
+  background: #fff1f0;
+}
