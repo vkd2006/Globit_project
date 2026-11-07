@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   LayoutDashboard, Laptop, Users, ClipboardList, Truck, RotateCcw,
   Search, Bell, Plus, ArrowUpRight, Package, Clock, CheckCircle2,
@@ -75,9 +75,9 @@ function LandingPage({ onSignIn, onGetStarted }) {
       <header className="landing-nav">
         <a className="landing-brand-link" href="#top" aria-label="Globit home"><Brand /></a>
         <nav className="landing-links" aria-label="Main navigation">
-          <a href="#solutions">Solutions</a>
-          <a href="#features">Features</a>
           <a href="#how-it-works">How it works</a>
+          <a href="#features">Features</a>
+          <a href="#solutions">Solutions</a>
         </nav>
         <div className="landing-nav-actions">
           <button className="landing-signin" onClick={onSignIn}>Sign in</button>
@@ -90,44 +90,153 @@ function LandingPage({ onSignIn, onGetStarted }) {
           <div className="hero-copy">
             <div className="hero-kicker"><Globe2 size={15} /> GLOBAL EQUIPMENT, SIMPLIFIED</div>
             <h1>Equip your global workforce, <span>anywhere.</span></h1>
-            <p className="hero-description">From procurement to delivery and recovery, manage your team's equipment across borders—all in one place.</p>
+            <p className="hero-description">
+              From hardware procurement and self-service requests to multi-country shipping, smart conflict resolution, and asset recovery—manage every device seamlessly in one place.
+            </p>
             <div className="hero-actions">
               <button className="landing-primary hero-cta" onClick={onGetStarted}>Get started <ArrowRight size={17} /></button>
               <button className="landing-secondary" onClick={onSignIn}>Sign in to your workspace</button>
             </div>
-            <div className="hero-trust"><span className="trust-icon"><ShieldCheck size={17} /></span><span>One workspace. Every location. Total visibility.</span></div>
+            <div className="hero-trust">
+              <span className="trust-icon"><ShieldCheck size={17} /></span>
+              <span>One unified workspace. Every office and remote location. Total visibility.</span>
+            </div>
           </div>
           <div className="hero-visual" aria-label="Illustration of global equipment logistics">
             <div className="visual-orbit orbit-one"></div><div className="visual-orbit orbit-two"></div>
             <div className="visual-globe"><Globe2 size={90} strokeWidth={1.15} /></div>
-            <div className="float-card float-card-top"><span className="float-icon purple"><Laptop size={19} /></span><span><strong>Equipment ready</strong><small>Device management</small></span><CircleCheck className="float-check" size={18} /></div>
-            <div className="float-card float-card-bottom"><span className="float-icon green"><Truck size={19} /></span><span><strong>Shipment in transit</strong><small><MapPin size={12} /> Berlin, Germany</small></span><span className="shipment-pulse"></span></div>
-            <div className="visual-tag"><span className="tag-dot"></span> Connected worldwide</div>
+            <div className="float-card float-card-top">
+              <span className="float-icon purple"><Laptop size={19} /></span>
+              <span><strong>Hardware Ready</strong><small>Instant stock allocation</small></span>
+              <CircleCheck className="float-check" size={18} />
+            </div>
+            <div className="float-card float-card-bottom">
+              <span className="float-icon green"><Truck size={19} /></span>
+              <span><strong>Global Delivery</strong><small><MapPin size={12} /> Berlin · DHL Express</small></span>
+              <span className="shipment-pulse"></span>
+            </div>
+            <div className="visual-tag"><span className="tag-dot"></span> Live Global Logistics Network</div>
           </div>
         </section>
 
-        <section className="landing-benefits" id="solutions">
-          <div className="benefits-intro"><span className="section-eyebrow">BUILT FOR DISTRIBUTED TEAMS</span><h2>Everything your equipment needs.<br /><span>All in one place.</span></h2><p>Keep every device, delivery, and return moving smoothly—wherever your people work.</p></div>
-          <div className="benefit-grid" id="features">
-            <article className="benefit-card"><div className="benefit-icon"><Boxes size={22} /></div><h3>Equipment management</h3><p>Keep device details and availability organised in one central workspace.</p><span className="benefit-number">01</span></article>
-            <article className="benefit-card"><div className="benefit-icon"><Truck size={22} /></div><h3>Global shipping</h3><p>Follow equipment deliveries and keep shipment information visible.</p><span className="benefit-number">02</span></article>
-            <article className="benefit-card"><div className="benefit-icon"><Users size={22} /></div><h3>Employee requests</h3><p>Bring equipment requests and team needs into one clear workflow.</p><span className="benefit-number">03</span></article>
-            <article className="benefit-card"><div className="benefit-icon"><RotateCcw size={22} /></div><h3>Easy asset recovery</h3><p>Keep returns and offboarding equipment organised from start to finish.</p><span className="benefit-number">04</span></article>
+        {/* HOW IT WORKS SECTION */}
+        <section className="landing-benefits" id="how-it-works" style={{ background: "#fafbfe" }}>
+          <div className="benefits-intro">
+            <span className="section-eyebrow">STEP-BY-STEP WORKFLOW</span>
+            <h2>How Globit Works<br /><span>From Inventory to Employee Hands</span></h2>
+            <p>A streamlined, connected lifecycle that handles hardware provisioning, requests, shipping, and returns without manual chaos.</p>
+          </div>
+          <div className="how-it-works-steps">
+            <article className="step-card">
+              <span className="step-number">1</span>
+              <h3>Catalog & Bulk Stock</h3>
+              <p>Admins register hardware with bulk quantity support and auto-indexed unique serial numbers for each physical unit.</p>
+            </article>
+            <article className="step-card">
+              <span className="step-number">2</span>
+              <h3>Self-Service Request</h3>
+              <p>Employees browse currently available in-stock devices, choose their preferred gear, and submit with their business rationale.</p>
+            </article>
+            <article className="step-card">
+              <span className="step-number">3</span>
+              <h3>Smart Auto-Conflict Resolver</h3>
+              <p>Admins approve with 1 click. Competing requests for the same device are automatically resolved and cancelled with clear explanations.</p>
+            </article>
+            <article className="step-card">
+              <span className="step-number">4</span>
+              <h3>Direct Carrier Dispatch</h3>
+              <p>Dispatch shipments directly from approved requests via DHL, FedEx, or UPS with real-time milestone tracking.</p>
+            </article>
+            <article className="step-card">
+              <span className="step-number">5</span>
+              <h3>Return & Restocking</h3>
+              <p>Employees schedule returns with designated pickup collection addresses. Inspected devices return to available inventory.</p>
+            </article>
           </div>
         </section>
 
-        <section className="landing-tracking" id="how-it-works">
-          <div className="tracking-copy"><span className="section-eyebrow">VISIBILITY WITHOUT THE CHAOS</span><h2>Know where your equipment is going.</h2><p>Keep shipment details and delivery progress close at hand, with a workspace designed for teams spread around the world.</p><button className="landing-text-link" onClick={onGetStarted}>Explore your workspace <ArrowRight size={16} /></button></div>
+        {/* CORE CAPABILITIES & FEATURES */}
+        <section className="landing-benefits" id="features">
+          <div className="benefits-intro">
+            <span className="section-eyebrow">BUILT FOR DISTRIBUTED TEAMS</span>
+            <h2>Comprehensive Capabilities<br /><span>Engineered for Global Scale</span></h2>
+            <p>Every tool and workflow your company needs to equip remote employees and international hubs seamlessly.</p>
+          </div>
+          <div className="benefit-grid">
+            <article className="benefit-card">
+              <div className="benefit-icon"><Boxes size={22} /></div>
+              <h3>Bulk Stock & Auto-Serialization</h3>
+              <p>Upload entire batches of laptops or monitors at once. Unique sequential serial numbers are auto-assigned to each unit.</p>
+              <span className="benefit-number">01</span>
+            </article>
+            <article className="benefit-card">
+              <div className="benefit-icon"><ShieldCheck size={22} /></div>
+              <h3>Conflict Auto-Checker</h3>
+              <p>Guarantees zero asset double-booking. When a device is assigned, pending duplicate requests are auto-cancelled with notices.</p>
+              <span className="benefit-number">02</span>
+            </article>
+            <article className="benefit-card">
+              <div className="benefit-icon"><Truck size={22} /></div>
+              <h3>Direct Order Dispatch</h3>
+              <p>Shipments are created directly from approved employee requests, preserving full lineage and real-time tracking.</p>
+              <span className="benefit-number">03</span>
+            </article>
+            <article className="benefit-card">
+              <div className="benefit-icon"><RotateCcw size={22} /></div>
+              <h3>Collection Address Routing</h3>
+              <p>Reverse logistics allows employees to specify exact street pickup locations for hardware returns and equipment refreshes.</p>
+              <span className="benefit-number">04</span>
+            </article>
+            <article className="benefit-card">
+              <div className="benefit-icon"><Users size={22} /></div>
+              <h3>Role-Based Portals</h3>
+              <p>Clean self-service views for employees showing only their assigned devices and requests, with full management for admins.</p>
+              <span className="benefit-number">05</span>
+            </article>
+            <article className="benefit-card">
+              <div className="benefit-icon"><Globe2 size={22} /></div>
+              <h3>Multi-Country Coverage</h3>
+              <p>Track hardware locations, regional customs requirements, and employee departments worldwide from a single dashboard.</p>
+              <span className="benefit-number">06</span>
+            </article>
+          </div>
+        </section>
+
+        <section className="landing-tracking" id="solutions">
+          <div className="tracking-copy">
+            <span className="section-eyebrow">EFFORTLESS OPERATIONS</span>
+            <h2>Keep your global equipment operations in sync.</h2>
+            <p>Eliminate spreadsheets and lost laptops with an interconnected system that links inventory, employees, and international courier tracking.</p>
+            <button className="landing-text-link" onClick={onGetStarted}>Explore your workspace <ArrowRight size={16} /></button>
+          </div>
           <div className="tracking-preview">
-            <div className="tracking-preview-head"><div><span className="preview-eyebrow">SHIPMENT OVERVIEW</span><h3>Delivery activity</h3></div><span className="preview-badge">Live overview</span></div>
-            <div className="tracking-route"><div className="route-icon"><Package size={21} /></div><div className="route-details"><strong>Equipment shipment</strong><span>Origin and destination details</span></div><span className="route-status">Ready to track</span></div>
+            <div className="tracking-preview-head">
+              <div><span className="preview-eyebrow">SHIPMENT OVERVIEW</span><h3>Delivery activity</h3></div>
+              <span className="preview-badge">Live overview</span>
+            </div>
+            <div className="tracking-route">
+              <div className="route-icon"><Package size={21} /></div>
+              <div className="route-details"><strong>Equipment shipment</strong><span>Origin and destination details</span></div>
+              <span className="route-status">Ready to track</span>
+            </div>
             <div className="route-line"><span></span><span></span><span></span></div>
-            <div className="route-stops"><div><span className="stop-dot completed"></span><strong>Prepared</strong><small>Equipment registered</small></div><div><span className="stop-dot"></span><strong>In transit</strong><small>Shipment updates</small></div><div><span className="stop-dot"></span><strong>Delivered</strong><small>Delivery confirmation</small></div></div>
-            <div className="preview-note"><ShieldCheck size={16} /> Shipment details will appear here once records are added.</div>
+            <div className="route-stops">
+              <div><span className="stop-dot completed"></span><strong>Prepared</strong><small>Equipment registered</small></div>
+              <div><span className="stop-dot completed"></span><strong>In transit</strong><small>Shipment updates</small></div>
+              <div><span className="stop-dot"></span><strong>Delivered</strong><small>Delivery confirmation</small></div>
+            </div>
+            <div className="preview-note"><ShieldCheck size={16} /> Continuous real-time updates as couriers advance checkpoints.</div>
           </div>
         </section>
 
-        <section className="landing-final-cta"><div><span className="section-eyebrow">YOUR GLOBAL EQUIPMENT HUB</span><h2>Make global equipment logistics feel local.</h2><p>Bring your equipment operations together with Globit.</p></div><button className="landing-primary" onClick={onGetStarted}>Get started <ArrowRight size={16} /></button></section>
+        <section className="landing-final-cta">
+          <div>
+            <span className="section-eyebrow">YOUR GLOBAL EQUIPMENT HUB</span>
+            <h2>Make global equipment logistics feel local.</h2>
+            <p>Bring your equipment operations together with Globit.</p>
+          </div>
+          <button className="landing-primary" onClick={onGetStarted}>Get started <ArrowRight size={16} /></button>
+        </section>
       </main>
       <footer className="landing-footer"><Brand /><span>© 2026 Globit</span><span>Global equipment. Simplified.</span></footer>
     </div>
@@ -421,16 +530,36 @@ function EditEquipmentModal({ item, employees = [], onClose, onUpdated }) {
   );
 }
 
-function EquipmentTable({ items, loading, search, role, onClearSearch, onAdd, onRequestReturn, onEdit, onDelete }) {
+function EquipmentTable({ items, loading, search, role, onClearSearch, onSearchChange, onAdd, onRequestReturn, onEdit, onDelete }) {
   const isEmployee = role === "employee";
   return (
     <section className="panel">
-      <div className="panel-heading">
+      <div className="panel-heading" style={{ flexWrap: "wrap", gap: "12px" }}>
         <div>
           <h2>{isEmployee ? "My devices" : "All equipment"}</h2>
           <p>{isEmployee ? "Equipment and accessories currently assigned to you" : "Every device registered in your workspace"}</p>
         </div>
-        {!isEmployee && <button className="text-button" onClick={onAdd}>Add equipment <Plus size={15} /></button>}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "auto", flexWrap: "wrap" }}>
+          <div className="table-search-box">
+            <Search size={14} />
+            <input
+              placeholder={isEmployee ? "Search my devices..." : "Search equipment by name, serial, country..."}
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#94a3b8" }}
+                onClick={onClearSearch}
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          {!isEmployee && <button className="text-button" onClick={onAdd}>Add equipment <Plus size={15} /></button>}
+        </div>
       </div>
       <div className="table-wrap">
         <table>
@@ -840,16 +969,36 @@ function AddRequestModal({ employees = [], currentUser = null, onClose, onAdded 
   );
 }
 
-function RequestsTable({ requests, loading, search, role, onClearSearch, onAdd, onUpdateStatus, onDispatch, onDelete }) {
+function RequestsTable({ requests, loading, search, role, onClearSearch, onSearchChange, onAdd, onUpdateStatus, onDispatch, onDelete }) {
   const isEmployee = role === "employee";
   return (
     <section className="panel">
-      <div className="panel-heading">
+      <div className="panel-heading" style={{ flexWrap: "wrap", gap: "12px" }}>
         <div>
           <h2>{isEmployee ? "My requests" : "All requests"}</h2>
           <p>{isEmployee ? "Equipment requests submitted by you and their live approval status" : "Equipment requests submitted by team members (approve to assign & dispatch)"}</p>
         </div>
-        <button className="text-button" onClick={onAdd}>{isEmployee ? "Request device" : "Add request"} <Plus size={15} /></button>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "auto", flexWrap: "wrap" }}>
+          <div className="table-search-box">
+            <Search size={14} />
+            <input
+              placeholder={isEmployee ? "Search my requests..." : "Search requests by item, employee, reason, status..."}
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#94a3b8" }}
+                onClick={onClearSearch}
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          <button className="text-button" onClick={onAdd}>{isEmployee ? "Request device" : "Add request"} <Plus size={15} /></button>
+        </div>
       </div>
       <div className="table-wrap">
         <table>
@@ -1105,16 +1254,36 @@ function AddShipmentModal({ equipment = [], employees = [], initialRequest = nul
   );
 }
 
-function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onTrack, onStatus, onDelete }) {
+function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onSearchChange, onTrack, onStatus, onDelete }) {
   const canManage = role === "admin" || role === "manager";
   const canDelete = role === "admin";
 
   return (
     <section className="panel">
-      <div className="panel-heading">
+      <div className="panel-heading" style={{ flexWrap: "wrap", gap: "12px" }}>
         <div>
           <h2>{canManage ? "All shipments" : "My shipments"}</h2>
           <p>{canManage ? "Active equipment shipments (dispatched directly from approved employee requests)" : "Equipment packages currently in transit to your location"}</p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "auto", flexWrap: "wrap" }}>
+          <div className="table-search-box">
+            <Search size={14} />
+            <input
+              placeholder="Search shipments by carrier, tracking, employee, country..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#94a3b8" }}
+                onClick={onClearSearch}
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
       <div className="table-wrap">
@@ -1393,18 +1562,38 @@ function CompleteReturnModal({ item, onClose, onSubmit }) {
   );
 }
 
-function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, onReceive, onComplete, onCancel, onDelete }) {
+function ReturnsTable({ returns, loading, search, role, onClearSearch, onSearchChange, onAdd, onReceive, onComplete, onCancel, onDelete }) {
   const canManage = role === "admin" || role === "manager";
   const canDelete = role === "admin";
 
   return (
     <section className="panel">
-      <div className="panel-heading">
+      <div className="panel-heading" style={{ flexWrap: "wrap", gap: "12px" }}>
         <div>
           <h2>{canManage ? "All returns" : "My returns"}</h2>
           <p>{canManage ? "Devices coming back from your team" : "Equipment returned or scheduled for recovery"}</p>
         </div>
-        {canManage && <button className="text-button" onClick={onAdd}>Add return <Plus size={15} /></button>}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "auto", flexWrap: "wrap" }}>
+          <div className="table-search-box">
+            <Search size={14} />
+            <input
+              placeholder="Search returns by equipment, employee, reason, address..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#94a3b8" }}
+                onClick={onClearSearch}
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          {canManage && <button className="text-button" onClick={onAdd}>Add return <Plus size={15} /></button>}
+        </div>
       </div>
       <div className="table-wrap">
         <table>
@@ -1750,12 +1939,35 @@ function ChangePasswordModal({ onClose }) {
   );
 }
 
-function UsersTable({ users, loading, search, currentUserId, onClearSearch, onAdd, onEdit, onReset }) {
+function UsersTable({ users, loading, search, currentUserId, onClearSearch, onSearchChange, onAdd, onEdit, onReset }) {
   return (
     <section className="panel">
-      <div className="panel-heading">
-        <div><h2>All users</h2><p>People who can sign in to Globit, and what they can do</p></div>
-        <button className="text-button" onClick={onAdd}>Add user <Plus size={15} /></button>
+      <div className="panel-heading" style={{ flexWrap: "wrap", gap: "12px" }}>
+        <div>
+          <h2>All users</h2>
+          <p>People who can sign in to Globit, and what they can do</p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "auto", flexWrap: "wrap" }}>
+          <div className="table-search-box">
+            <Search size={14} />
+            <input
+              placeholder="Search users by name, email, role, status..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#94a3b8" }}
+                onClick={onClearSearch}
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          <button className="text-button" onClick={onAdd}>Add user <Plus size={15} /></button>
+        </div>
       </div>
       <div className="table-wrap">
         <table>
@@ -2016,12 +2228,32 @@ function EmployeeDetailsModal({ employee, onClose, onUpdateRequestStatus }) {
   );
 }
 
-function EmployeesTable({ employees, loading, search, onClearSearch, onAdd, onViewRecords, onEdit, onDelete }) {
+function EmployeesTable({ employees, loading, search, onClearSearch, onSearchChange, onAdd, onViewRecords, onEdit, onDelete }) {
   return (
     <section className="panel">
-      <div className="panel-heading">
+      <div className="panel-heading" style={{ flexWrap: "wrap", gap: "12px" }}>
         <div><h2>All employees</h2><p>Team members across all countries and departments</p></div>
-        <button className="text-button" onClick={onAdd}>Add employee <Plus size={15} /></button>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "auto", flexWrap: "wrap" }}>
+          <div className="table-search-box">
+            <Search size={14} />
+            <input
+              placeholder="Search employees by name, email, department, country..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#94a3b8" }}
+                onClick={onClearSearch}
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          <button className="text-button" onClick={onAdd}>Add employee <Plus size={15} /></button>
+        </div>
       </div>
       <div className="table-wrap">
         <table>
@@ -2137,6 +2369,106 @@ function Dashboard({ user, onSignOut }) {
   const [showChangePassword, setShowChangePassword] = useState(false);
 
   const [viewingEmployee, setViewingEmployee] = useState(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [readNotifications, setReadNotifications] = useState(new Set());
+  const notificationsRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const notifications = useMemo(() => {
+    const list = [];
+    if (user.role === "admin" || user.role === "manager") {
+      requests.filter((r) => r.status === "pending").slice(0, 5).forEach((r) => {
+        list.push({
+          id: `req-${r._id}`,
+          title: "New equipment request",
+          message: `${r.employee?.name || "An employee"} requested ${r.item}`,
+          time: r.date || "Pending review",
+          targetTab: "Requests",
+          icon: ClipboardList,
+          color: "#f59e0b",
+        });
+      });
+      shipments.filter((s) => s.status === "processing" || s.status === "in_transit").slice(0, 3).forEach((s) => {
+        list.push({
+          id: `ship-${s._id}`,
+          title: s.status === "in_transit" ? "Shipment in transit" : "Shipment processing",
+          message: `${s.equipment?.name || "Equipment"} sent to ${s.employee?.name || "employee"} (${s.carrier || "Carrier"} #${s.trackingNumber || "—"})`,
+          time: s.destinationCountry || "In transit",
+          targetTab: "Shipments",
+          icon: Truck,
+          color: "#6554d9",
+        });
+      });
+      returnsList.filter((ret) => ret.status === "requested" || ret.status === "received").slice(0, 3).forEach((ret) => {
+        list.push({
+          id: `ret-${ret._id}`,
+          title: ret.status === "requested" ? "Device return scheduled" : "Return received for inspection",
+          message: `${ret.employee?.name || "Employee"} returning ${ret.equipment?.name || "device"}${ret.collectionAddress ? ` · Pickup: ${ret.collectionAddress}` : ""}`,
+          time: ret.status === "requested" ? "Pickup pending" : "Needs inspection",
+          targetTab: "Returns",
+          icon: RotateCcw,
+          color: "#0ea5e9",
+        });
+      });
+    } else {
+      requests.filter((r) => r.status === "approved").slice(0, 3).forEach((r) => {
+        list.push({
+          id: `req-app-${r._id}`,
+          title: "Request approved & assigned!",
+          message: `Your request for ${r.item} was approved and assigned to you.`,
+          time: "Approved",
+          targetTab: "Requests",
+          icon: CheckCircle2,
+          color: "#16a34a",
+        });
+      });
+      requests.filter((r) => r.status === "rejected").slice(0, 3).forEach((r) => {
+        list.push({
+          id: `req-rej-${r._id}`,
+          title: "Request update",
+          message: r.rejectionReason || `Request for ${r.item} was declined.`,
+          time: "Cancelled",
+          targetTab: "Requests",
+          icon: X,
+          color: "#ef4444",
+        });
+      });
+      shipments.filter((s) => s.status === "in_transit" || s.status === "processing").slice(0, 3).forEach((s) => {
+        list.push({
+          id: `ship-emp-${s._id}`,
+          title: "Device shipment on the way",
+          message: `${s.equipment?.name || "Equipment"} is coming to you via ${s.carrier || "courier"} #${s.trackingNumber || ""}`,
+          time: s.status,
+          targetTab: "Shipments",
+          icon: Truck,
+          color: "#6554d9",
+        });
+      });
+      returnsList.slice(0, 2).forEach((ret) => {
+        list.push({
+          id: `ret-emp-${ret._id}`,
+          title: ret.status === "completed" ? "Return completed & restocked" : "Return scheduled",
+          message: `${ret.equipment?.name || "Device"} return is ${ret.status}`,
+          time: ret.status,
+          targetTab: "Returns",
+          icon: RotateCcw,
+          color: ret.status === "completed" ? "#16a34a" : "#0ea5e9",
+        });
+      });
+    }
+    return list;
+  }, [user.role, requests, shipments, returnsList]);
+
+  const unreadCount = notifications.filter((n) => !readNotifications.has(n.id)).length;
 
   const visibleNavigation = user.role === "employee"
     ? [
@@ -2594,7 +2926,71 @@ function Dashboard({ user, onSignOut }) {
               />
             </div>
             <button className="notification-button" aria-label="Change password" title="Change password" onClick={() => setShowChangePassword(true)}><LockKeyhole size={18} /></button>
-            <button className="notification-button" aria-label="Notifications" onClick={() => alert("No notifications yet.")}><Bell size={19} /></button>
+            <div className="notifications-wrap" ref={notificationsRef}>
+              <button
+                type="button"
+                className="notification-button"
+                aria-label="Notifications"
+                title="Notifications"
+                onClick={() => setShowNotifications((prev) => !prev)}
+              >
+                <Bell size={19} />
+                {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+              </button>
+              {showNotifications && (
+                <div className="notifications-dropdown" role="dialog" aria-label="Notifications center">
+                  <div className="notifications-header">
+                    <div>
+                      <h3>Notifications</h3>
+                      <span style={{ fontSize: "11px", color: "#9299aa" }}>
+                        {unreadCount > 0 ? `${unreadCount} unread update${unreadCount === 1 ? "" : "s"}` : "All caught up"}
+                      </span>
+                    </div>
+                    {notifications.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setReadNotifications(new Set(notifications.map((n) => n.id)))}
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  <div className="notifications-list">
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: "34px 20px", textAlign: "center", color: "#94a3b8", fontSize: "12px" }}>
+                        ✓ No new notifications. You're all caught up!
+                      </div>
+                    ) : (
+                      notifications.map((n) => {
+                        const isUnread = !readNotifications.has(n.id);
+                        const IconComponent = n.icon;
+                        return (
+                          <button
+                            key={n.id}
+                            type="button"
+                            className={`notification-item ${isUnread ? "unread" : ""}`}
+                            onClick={() => {
+                              setActivePage(n.targetTab);
+                              setReadNotifications((prev) => new Set([...prev, n.id]));
+                              setShowNotifications(false);
+                            }}
+                          >
+                            <div className="notification-icon-wrap" style={{ background: `${n.color}15`, color: n.color }}>
+                              <IconComponent size={16} />
+                            </div>
+                            <div className="notification-content">
+                              <div className="notification-title">{n.title}</div>
+                              <div className="notification-msg">{n.message}</div>
+                              <div className="notification-time">{n.time}</div>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="avatar avatar-light">{user.name[0]}</div>
           </div>
         </header>
@@ -2669,6 +3065,7 @@ function Dashboard({ user, onSignOut }) {
               search={search}
               role={user.role}
               onClearSearch={() => setSearch("")}
+              onSearchChange={setSearch}
               onAdd={() => setShowAddEquipment(true)}
               onRequestReturn={(item) => { setReturnEquipment(item); setShowAddReturn(true); }}
               onEdit={(item) => setEditingEquipment(item)}
@@ -2680,6 +3077,7 @@ function Dashboard({ user, onSignOut }) {
               loading={loadingEmployees}
               search={search}
               onClearSearch={() => setSearch("")}
+              onSearchChange={setSearch}
               onAdd={() => setShowAddEmployee(true)}
               onViewRecords={(emp) => setViewingEmployee(emp)}
               onEdit={(emp) => setEditingEmployee(emp)}
@@ -2692,6 +3090,7 @@ function Dashboard({ user, onSignOut }) {
               search={search}
               role={user.role}
               onClearSearch={() => setSearch("")}
+              onSearchChange={setSearch}
               onAdd={() => setShowAddRequest(true)}
               onUpdateStatus={handleUpdateRequestStatus}
               onDispatch={(req) => {
@@ -2707,6 +3106,7 @@ function Dashboard({ user, onSignOut }) {
               search={search}
               role={user.role}
               onClearSearch={() => setSearch("")}
+              onSearchChange={setSearch}
               onTrack={(shipment) => setTrackingShipment(shipment)}
               onStatus={handleShipmentStatus}
               onDelete={handleDeleteShipment}
@@ -2718,6 +3118,7 @@ function Dashboard({ user, onSignOut }) {
               search={search}
               role={user.role}
               onClearSearch={() => setSearch("")}
+              onSearchChange={setSearch}
               onAdd={() => setShowAddReturn(true)}
               onReceive={(id) => handleReturnStatus(id, "received")}
               onComplete={(item) => setCompletingReturn(item)}
@@ -2731,6 +3132,7 @@ function Dashboard({ user, onSignOut }) {
               search={search}
               currentUserId={user.id}
               onClearSearch={() => setSearch("")}
+              onSearchChange={setSearch}
               onAdd={() => setShowAddUser(true)}
               onEdit={(item) => setEditingUser(item)}
               onReset={(item) => setResettingUser(item)}
