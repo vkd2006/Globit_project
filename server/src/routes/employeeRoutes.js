@@ -2,6 +2,10 @@ import { Router } from 'express'
 import { z } from 'zod'
 import Employee from '../models/Employee.js'
 import Equipment from '../models/Equipment.js'
+import Request from '../models/Request.js'
+import Shipment from '../models/Shipment.js'
+import EquipmentReturn from '../models/EquipmentReturn.js'
+import User from '../models/User.js'
 import { protect, restrictTo } from '../middleware/auth.js'
 
 const router = Router()
@@ -14,6 +18,7 @@ const employeeCreateSchema = z.object({
     country: z.string().trim().optional().default(''),
     address: z.string().trim().optional().default(''),
     status: z.enum(['active', 'inactive', 'on_leave']).optional().default('active'),
+    password: z.string().min(8, 'The password must be at least 8 characters').optional(),
 })
 
 const employeeUpdateSchema = z.object({
@@ -30,6 +35,13 @@ router.get('/', async (req, res) => {
     try {
         const { search, status } = req.query
         const query = {}
+
+        // If the logged in user is an employee, only return their own employee profile
+        if (req.user.role === 'employee') {
+            query.email = req.user.email.toLowerCase()
+            const employees = await Employee.find(query)
+            return res.json({ employees, count: employees.length })
+        }
 
         if (status) {
             query.status = status
@@ -53,14 +65,33 @@ router.get('/', async (req, res) => {
     }
 })
 
-// Get single employee
+// Get single employee with full profile and linked records (assigned equipment, requests, shipments, returns)
 router.get('/:id', async (req, res) => {
     try {
         const employee = await Employee.findById(req.params.id)
         if (!employee) {
             return res.status(404).json({ message: 'Employee not found' })
         }
-        res.json({ employee })
+        if (req.user.role === 'employee' && employee.email.toLowerCase() !== req.user.email.toLowerCase()) {
+            return res.status(403).json({ message: 'Access denied' })
+        }
+
+        const [assignedEquipment, requests, shipments, returns, userAccount] = await Promise.all([
+            Equipment.find({ assignedTo: employee._id }).sort({ createdAt: -1 }),
+            Request.find({ employee: employee._id }).sort({ createdAt: -1 }),
+            Shipment.find({ employee: employee._id }).populate('equipment', 'name type serialNumber').sort({ createdAt: -1 }),
+            EquipmentReturn.find({ employee: employee._id }).populate('equipment', 'name type serialNumber').sort({ createdAt: -1 }),
+            User.findOne({ email: employee.email.toLowerCase() }).select('_id role active createdAt'),
+        ])
+
+        res.json({
+            employee,
+            assignedEquipment,
+            requests,
+            shipments,
+            returns,
+            userAccount: userAccount ? { id: userAccount._id, role: userAccount.role, active: userAccount.active } : null,
+        })
     } catch (err) {
         res.status(500).json({ message: err.message || 'Failed to fetch employee' })
     }
@@ -74,7 +105,22 @@ router.post('/', restrictTo('admin', 'manager'), async (req, res) => {
     }
 
     try {
-        const employee = await Employee.create(parsed.data)
+        const { password, ...employeeData } = parsed.data
+        const employee = await Employee.create(employeeData)
+
+        // Automatically create a User login account so the employee can log in!
+        const existingUser = await User.findOne({ email: employee.email })
+        if (!existingUser) {
+            const userPassword = password || 'Employee@123'
+            await User.create({
+                name: employee.name,
+                email: employee.email,
+                password: userPassword,
+                role: 'employee',
+                active: employee.status === 'active',
+            })
+        }
+
         res.status(201).json({ employee })
     } catch (err) {
         if (err.code === 11000) {
@@ -92,14 +138,27 @@ router.put('/:id', restrictTo('admin', 'manager'), async (req, res) => {
     }
 
     try {
+        const oldEmployee = await Employee.findById(req.params.id)
+        if (!oldEmployee) {
+            return res.status(404).json({ message: 'Employee not found' })
+        }
+
         const employee = await Employee.findByIdAndUpdate(
             req.params.id,
             parsed.data,
             { new: true, runValidators: true }
         )
-        if (!employee) {
-            return res.status(404).json({ message: 'Employee not found' })
+
+        // Sync name, email, or active status to User account if exists
+        const userUpdate = {}
+        if (parsed.data.name) userUpdate.name = parsed.data.name
+        if (parsed.data.email) userUpdate.email = parsed.data.email
+        if (parsed.data.status) userUpdate.active = parsed.data.status === 'active'
+
+        if (Object.keys(userUpdate).length > 0) {
+            await User.findOneAndUpdate({ email: oldEmployee.email }, userUpdate)
         }
+
         res.json({ employee })
     } catch (err) {
         if (err.code === 11000) {
@@ -122,6 +181,9 @@ router.delete('/:id', restrictTo('admin', 'manager'), async (req, res) => {
             { assignedTo: req.params.id },
             { $set: { assignedTo: null, status: 'available' } }
         )
+
+        // Also deactivate the corresponding User account
+        await User.findOneAndUpdate({ email: employee.email }, { active: false })
 
         res.json({ message: 'Employee deleted successfully', id: req.params.id })
     } catch (err) {

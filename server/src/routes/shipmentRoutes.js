@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import { z } from 'zod'
 import Shipment from '../models/Shipment.js'
 import Equipment from '../models/Equipment.js'
+import Employee from '../models/Employee.js'
 import { protect, restrictTo } from '../middleware/auth.js'
 
 const router = Router()
@@ -40,8 +41,22 @@ async function syncEquipment(shipment) {
 }
 
 router.get('/', async (req, res) => {
-    const shipments = await Shipment.find().sort({ createdAt: -1 }).populate(populateFields)
-    res.json({ shipments })
+    try {
+        let query = {}
+        // If employee role, only show shipments addressed to this employee!
+        if (req.user.role === 'employee') {
+            const employee = await Employee.findOne({ email: req.user.email.toLowerCase() })
+            if (!employee) {
+                return res.json({ shipments: [] })
+            }
+            query = { employee: employee._id }
+        }
+
+        const shipments = await Shipment.find(query).sort({ createdAt: -1 }).populate(populateFields)
+        res.json({ shipments })
+    } catch (err) {
+        res.status(500).json({ message: err.message || 'Failed to fetch shipments' })
+    }
 })
 
 router.post('/', restrictTo('admin', 'manager'), async (req, res) => {

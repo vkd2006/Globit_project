@@ -22,7 +22,7 @@ const requestUpdateSchema = z.object({
     status: z.enum(['pending', 'approved', 'rejected', 'fulfilled']).optional(),
 })
 
-// List all requests
+// List all requests (scoped for employees)
 router.get('/', async (req, res) => {
     try {
         const { search, status } = req.query
@@ -30,6 +30,15 @@ router.get('/', async (req, res) => {
 
         if (status) {
             query.status = status
+        }
+
+        // If employee role, only show requests submitted by this employee!
+        if (req.user.role === 'employee') {
+            const employee = await Employee.findOne({ email: req.user.email.toLowerCase() })
+            if (!employee) {
+                return res.json({ requests: [], count: 0 })
+            }
+            query.employee = employee._id
         }
 
         const items = await Request.find(query)
@@ -56,9 +65,25 @@ router.get('/', async (req, res) => {
     }
 })
 
-// Create request
+// Create request (employees can request for themselves, admins/managers for anyone)
 router.post('/', async (req, res) => {
-    const parsed = requestCreateSchema.safeParse(req.body)
+    let reqData = { ...req.body }
+
+    // If an employee is submitting the request, enforce employee ID to their own profile!
+    if (req.user.role === 'employee') {
+        let employee = await Employee.findOne({ email: req.user.email.toLowerCase() })
+        if (!employee) {
+            employee = await Employee.create({
+                name: req.user.name,
+                email: req.user.email.toLowerCase(),
+                status: 'active',
+            })
+        }
+        reqData.employee = employee._id.toString()
+        reqData.status = 'pending'
+    }
+
+    const parsed = requestCreateSchema.safeParse(reqData)
     if (!parsed.success) {
         return res.status(400).json({ message: parsed.error.issues[0].message })
     }
@@ -91,8 +116,8 @@ router.post('/', async (req, res) => {
     }
 })
 
-// Update request (e.g. approve, reject, fulfill)
-router.put('/:id', async (req, res) => {
+// Update request (e.g. approve, reject, fulfill) - restricted to admins and managers
+router.put('/:id', restrictTo('admin', 'manager'), async (req, res) => {
     const parsed = requestUpdateSchema.safeParse(req.body)
     if (!parsed.success) {
         return res.status(400).json({ message: parsed.error.issues[0].message })

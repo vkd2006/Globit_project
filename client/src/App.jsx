@@ -389,12 +389,16 @@ function EditEquipmentModal({ item, employees = [], onClose, onUpdated }) {
   );
 }
 
-function EquipmentTable({ items, loading, search, onClearSearch, onAdd, onEdit, onDelete }) {
+function EquipmentTable({ items, loading, search, role, onClearSearch, onAdd, onRequestReturn, onEdit, onDelete }) {
+  const isEmployee = role === "employee";
   return (
     <section className="panel">
       <div className="panel-heading">
-        <div><h2>All equipment</h2><p>Every device registered in your workspace</p></div>
-        <button className="text-button" onClick={onAdd}>Add equipment <Plus size={15} /></button>
+        <div>
+          <h2>{isEmployee ? "My devices" : "All equipment"}</h2>
+          <p>{isEmployee ? "Equipment and accessories currently assigned to you" : "Every device registered in your workspace"}</p>
+        </div>
+        {!isEmployee && <button className="text-button" onClick={onAdd}>Add equipment <Plus size={15} /></button>}
       </div>
       <div className="table-wrap">
         <table>
@@ -404,44 +408,59 @@ function EquipmentTable({ items, loading, search, onClearSearch, onAdd, onEdit, 
               <th>TYPE</th>
               <th>SERIAL NUMBER</th>
               <th>COUNTRY</th>
-              <th>ASSIGNED TO</th>
+              {!isEmployee && <th>ASSIGNED TO</th>}
               <th>STATUS</th>
               <th>ACTIONS</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="7" className="empty-state">Loading equipment...</td></tr>
+              <tr><td colSpan={isEmployee ? 6 : 7} className="empty-state">Loading equipment...</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan="7" className="empty-state">{search ? "No matching equipment found." : "No equipment yet. Add your first item with the button above."}</td></tr>
+              <tr><td colSpan={isEmployee ? 6 : 7} className="empty-state">{search ? "No matching equipment found." : isEmployee ? "No equipment currently assigned to you. Submit a device request to get hardware." : "No equipment yet. Add your first item with the button above."}</td></tr>
             ) : (
               items.map((item) => (
                 <tr key={item._id}>
                   <td className="cell-strong">{item.name}</td>
                   <td className="cell-capitalize">{item.type}</td>
-                  <td>{item.serialNumber}</td>
+                  <td style={{ fontFamily: "monospace", fontSize: "12px" }}>{item.serialNumber}</td>
                   <td>{item.country || "—"}</td>
-                  <td>
-                    {item.assignedTo ? (
-                      <div className="assignee-badge" title={`${item.assignedTo.name} (${item.assignedTo.email || ""})`}>
-                        <span className="assignee-avatar">
-                          {item.assignedTo.name?.[0]?.toUpperCase() || "E"}
-                        </span>
-                        <span>{item.assignedTo.name}</span>
-                      </div>
-                    ) : (
-                      <span className="cell-muted">—</span>
-                    )}
-                  </td>
+                  {!isEmployee && (
+                    <td>
+                      {item.assignedTo ? (
+                        <div className="assignee-badge" title={`${item.assignedTo.name} (${item.assignedTo.email || ""})`}>
+                          <span className="assignee-avatar">
+                            {item.assignedTo.name?.[0]?.toUpperCase() || "E"}
+                          </span>
+                          <span>{item.assignedTo.name}</span>
+                        </div>
+                      ) : (
+                        <span className="cell-muted">—</span>
+                      )}
+                    </td>
+                  )}
                   <td><span className={`status-badge status-${item.status}`}>{statusLabels[item.status] || item.status}</span></td>
                   <td>
                     <div className="table-actions">
-                      <button className="action-btn" title="Edit / Assign equipment" aria-label="Edit equipment" onClick={() => onEdit(item)}>
-                        <Pencil size={14} />
-                      </button>
-                      <button className="action-btn action-btn-danger" title="Delete equipment" aria-label="Delete equipment" onClick={() => onDelete(item)}>
-                        <Trash2 size={14} />
-                      </button>
+                      {!isEmployee ? (
+                        <>
+                          <button className="action-btn" title="Edit / Assign equipment" aria-label="Edit equipment" onClick={() => onEdit(item)}>
+                            <Pencil size={14} />
+                          </button>
+                          <button className="action-btn action-btn-danger" title="Delete equipment" aria-label="Delete equipment" onClick={() => onDelete(item)}>
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          className="action-btn"
+                          title="Request return for this device"
+                          aria-label="Request return"
+                          onClick={() => onRequestReturn(item)}
+                        >
+                          <RotateCcw size={14} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -463,6 +482,7 @@ function AddEmployeeModal({ onClose, onAdded }) {
     country: "",
     address: "",
     status: "active",
+    password: "",
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -525,6 +545,17 @@ function AddEmployeeModal({ onClose, onAdded }) {
               <option value="inactive">Inactive</option>
               <option value="on_leave">On leave</option>
             </select>
+          </div>
+          <div className="form-field">
+            <label htmlFor="emp-password">Sign-in password (optional)</label>
+            <input
+              id="emp-password"
+              value={form.password}
+              onChange={(e) => update("password", e.target.value)}
+              placeholder="e.g. Employee@123 (defaults to Employee@123)"
+              minLength={8}
+            />
+            <span className="cell-muted">A sign-in user account will be created so this employee can log in and request devices.</span>
           </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="modal-actions">
@@ -619,9 +650,10 @@ function EditEmployeeModal({ employee, onClose, onUpdated }) {
   );
 }
 
-function AddRequestModal({ employees = [], onClose, onAdded }) {
+function AddRequestModal({ employees = [], currentUser = null, onClose, onAdded }) {
+  const isEmployee = currentUser?.role === "employee";
   const [form, setForm] = useState({
-    employee: employees[0]?._id || "",
+    employee: isEmployee ? "" : (employees[0]?._id || ""),
     item: "",
     itemType: "laptop",
     reason: "",
@@ -636,16 +668,19 @@ function AddRequestModal({ employees = [], onClose, onAdded }) {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (!form.employee) {
+    if (!isEmployee && !form.employee) {
       setError("Please select an employee.");
       return;
     }
     setSaving(true);
     setError("");
     try {
+      const payload = isEmployee
+        ? { item: form.item, itemType: form.itemType, reason: form.reason }
+        : form;
       const { request } = await api("/requests", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       onAdded(request);
     } catch (err) {
@@ -659,24 +694,34 @@ function AddRequestModal({ employees = [], onClose, onAdded }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Add equipment request" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <div><h2>New equipment request</h2><p>Submit an equipment request on behalf of an employee.</p></div>
+          <div>
+            <h2>{isEmployee ? "Request device" : "New equipment request"}</h2>
+            <p>{isEmployee ? "Request equipment or peripherals for your work." : "Submit an equipment request on behalf of an employee."}</p>
+          </div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit}>
+          {isEmployee ? (
+            <div style={{ background: "#f8f9ff", border: "1px solid #e0e7ff", borderRadius: "10px", padding: "12px 14px", display: "flex", alignItems: "center", gap: "10px", color: "#4338ca", fontSize: "13px" }}>
+              <Package size={18} />
+              <span>Requesting for: <strong>{currentUser.name}</strong> ({currentUser.email})</span>
+            </div>
+          ) : (
+            <div className="form-field">
+              <label htmlFor="req-emp">Employee</label>
+              <select id="req-emp" value={form.employee} onChange={(e) => update("employee", e.target.value)} required>
+                <option value="">Select employee...</option>
+                {employees.map((emp) => (
+                  <option key={emp._id} value={emp._id}>
+                    {emp.name} ({emp.department || "No department"}) — {emp.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="form-field">
-            <label htmlFor="req-emp">Employee</label>
-            <select id="req-emp" value={form.employee} onChange={(e) => update("employee", e.target.value)} required>
-              <option value="">Select employee...</option>
-              {employees.map((emp) => (
-                <option key={emp._id} value={emp._id}>
-                  {emp.name} ({emp.department || "No department"}) — {emp.email}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-field">
-            <label htmlFor="req-item">Equipment / Item</label>
-            <input id="req-item" value={form.item} onChange={(e) => update("item", e.target.value)} placeholder="e.g. MacBook Pro 16 or External Monitor" required />
+            <label htmlFor="req-item">Equipment / Item name</label>
+            <input id="req-item" value={form.item} onChange={(e) => update("item", e.target.value)} placeholder="e.g. MacBook Pro 16 or Dell 27 4K Monitor" required />
           </div>
           <div className="form-field">
             <label htmlFor="req-type">Item category</label>
@@ -701,18 +746,22 @@ function AddRequestModal({ employees = [], onClose, onAdded }) {
   );
 }
 
-function RequestsTable({ requests, loading, search, onClearSearch, onAdd, onUpdateStatus, onDelete }) {
+function RequestsTable({ requests, loading, search, role, onClearSearch, onAdd, onUpdateStatus, onDelete }) {
+  const isEmployee = role === "employee";
   return (
     <section className="panel">
       <div className="panel-heading">
-        <div><h2>All requests</h2><p>Equipment requests submitted by team members</p></div>
-        <button className="text-button" onClick={onAdd}>Add request <Plus size={15} /></button>
+        <div>
+          <h2>{isEmployee ? "My requests" : "All requests"}</h2>
+          <p>{isEmployee ? "Equipment requests submitted by you and their approval status" : "Equipment requests submitted by team members"}</p>
+        </div>
+        <button className="text-button" onClick={onAdd}>{isEmployee ? "Request device" : "Add request"} <Plus size={15} /></button>
       </div>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>EMPLOYEE</th>
+              {!isEmployee && <th>EMPLOYEE</th>}
               <th>REQUESTED ITEM</th>
               <th>TYPE</th>
               <th>DATE</th>
@@ -723,23 +772,25 @@ function RequestsTable({ requests, loading, search, onClearSearch, onAdd, onUpda
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="7" className="empty-state">Loading requests...</td></tr>
+              <tr><td colSpan={isEmployee ? 6 : 7} className="empty-state">Loading requests...</td></tr>
             ) : requests.length === 0 ? (
-              <tr><td colSpan="7" className="empty-state">{search ? "No matching requests found." : "No requests yet. Submit your first request with the button above."}</td></tr>
+              <tr><td colSpan={isEmployee ? 6 : 7} className="empty-state">{search ? "No matching requests found." : isEmployee ? "You haven't requested any devices yet. Click 'Request device' above." : "No requests yet. Submit your first request with the button above."}</td></tr>
             ) : (
               requests.map((req) => (
                 <tr key={req._id}>
-                  <td>
-                    <div className="employee-cell">
-                      <span className="employee-avatar">
-                        {req.employee?.name?.[0]?.toUpperCase() || "E"}
-                      </span>
-                      <div className="employee-info-cell">
-                        <strong>{req.employee?.name || "Unknown employee"}</strong>
-                        <span>{req.employee?.department || req.employee?.email || "—"}</span>
+                  {!isEmployee && (
+                    <td>
+                      <div className="employee-cell">
+                        <span className="employee-avatar">
+                          {req.employee?.name?.[0]?.toUpperCase() || "E"}
+                        </span>
+                        <div className="employee-info-cell">
+                          <strong>{req.employee?.name || "Unknown employee"}</strong>
+                          <span>{req.employee?.department || req.employee?.email || "—"}</span>
+                        </div>
                       </div>
-                    </div>
-                  </td>
+                    </td>
+                  )}
                   <td className="cell-strong">{req.item}</td>
                   <td className="cell-capitalize">{req.itemType || "laptop"}</td>
                   <td>{req.date || "—"}</td>
@@ -753,7 +804,7 @@ function RequestsTable({ requests, loading, search, onClearSearch, onAdd, onUpda
                   </td>
                   <td>
                     <div className="table-actions">
-                      {req.status === "pending" && (
+                      {!isEmployee && req.status === "pending" && (
                         <>
                           <button
                             className="action-btn action-btn-success"
@@ -773,14 +824,21 @@ function RequestsTable({ requests, loading, search, onClearSearch, onAdd, onUpda
                           </button>
                         </>
                       )}
-                      <button
-                        className="action-btn action-btn-danger"
-                        title="Delete request"
-                        aria-label="Delete request"
-                        onClick={() => onDelete(req)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {!isEmployee && (
+                        <button
+                          className="action-btn action-btn-danger"
+                          title="Delete request"
+                          aria-label="Delete request"
+                          onClick={() => onDelete(req)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                      {isEmployee && (
+                        <span className="cell-muted" style={{ fontSize: "12px" }}>
+                          {req.status === "pending" ? "In review" : req.status === "approved" ? "Approved" : req.status === "rejected" ? "Declined" : "Completed"}
+                        </span>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -1245,7 +1303,7 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
 const roleOptions = ["admin", "manager", "employee"];
 
 function AddUserModal({ onClose, onAdded }) {
-  const [form, setForm] = useState({ name: "", email: "", role: "employee", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", role: "employee", password: "", department: "", country: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -1289,10 +1347,24 @@ function AddUserModal({ onClose, onAdded }) {
               {roleOptions.map((role) => <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</option>)}
             </select>
           </div>
+          {form.role === "employee" && (
+            <div className="form-row">
+              <div className="form-field">
+                <label htmlFor="user-dept">Department (optional)</label>
+                <input id="user-dept" value={form.department || ""} onChange={(e) => update("department", e.target.value)} placeholder="e.g. Engineering" />
+              </div>
+              <div className="form-field">
+                <label htmlFor="user-country">Country (optional)</label>
+                <input id="user-country" value={form.country || ""} onChange={(e) => update("country", e.target.value)} placeholder="e.g. India" />
+              </div>
+            </div>
+          )}
           <div className="form-field">
             <label htmlFor="user-password">Temporary password</label>
             <input id="user-password" value={form.password} onChange={(e) => update("password", e.target.value)} placeholder="At least 8 characters" minLength={8} required />
-            <span className="cell-muted">Share it privately. The user can change it after signing in.</span>
+            <span className="cell-muted">
+              {form.role === "employee" ? "This creates a sign-in account and automatically registers them in the employee directory." : "Share it privately. The user can change it after signing in."}
+            </span>
           </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="modal-actions">
@@ -1561,7 +1633,192 @@ function DeleteConfirmModal({ title, message, itemName, onClose, onConfirm, load
   );
 }
 
-function EmployeesTable({ employees, loading, search, onClearSearch, onAdd, onEdit, onDelete }) {
+function EmployeeDetailsModal({ employee, onClose, onUpdateRequestStatus }) {
+  const [details, setDetails] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let ignore = false;
+    if (!employee?._id) return;
+    api(`/employees/${employee._id}`)
+      .then((data) => {
+        if (!ignore) {
+          setDetails(data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          alert(err.message || "Failed to load employee records");
+          setLoading(false);
+        }
+      });
+    return () => { ignore = true; };
+  }, [employee?._id]);
+
+  if (!employee) return null;
+
+  const assigned = details?.assignedEquipment || [];
+  const reqs = details?.requests || [];
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal modal-lg" role="dialog" aria-modal="true" aria-label="Employee records" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "680px" }}>
+        <div className="modal-head">
+          <div style={{ display: "flex", gap: "14px", alignItems: "center" }}>
+            <span className="employee-avatar" style={{ width: "42px", height: "42px", fontSize: "16px" }}>
+              {employee.name?.[0]?.toUpperCase() || "E"}
+            </span>
+            <div>
+              <h2 style={{ fontSize: "18px", margin: 0 }}>{employee.name}</h2>
+              <p style={{ margin: "3px 0 0" }}>{employee.email} · {employee.department || "No department"} · {employee.country || "No location"}</p>
+            </div>
+          </div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+
+        {loading ? (
+          <div style={{ padding: "40px 0", textAlign: "center", color: "#8790a3" }}>Loading employee records...</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
+              <div style={{ background: "#f8f9fc", padding: "12px", borderRadius: "10px", border: "1px solid #e2e8f0", textAlign: "center" }}>
+                <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Assigned Devices</span>
+                <strong style={{ display: "block", fontSize: "20px", color: "#1e293b", marginTop: "4px" }}>{assigned.length}</strong>
+              </div>
+              <div style={{ background: "#f8f9fc", padding: "12px", borderRadius: "10px", border: "1px solid #e2e8f0", textAlign: "center" }}>
+                <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Total Requests</span>
+                <strong style={{ display: "block", fontSize: "20px", color: "#1e293b", marginTop: "4px" }}>{reqs.length}</strong>
+              </div>
+              <div style={{ background: "#f8f9fc", padding: "12px", borderRadius: "10px", border: "1px solid #e2e8f0", textAlign: "center" }}>
+                <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Login Account</span>
+                <span className={`status-badge status-${details?.userAccount ? "active" : "inactive"}`} style={{ display: "inline-block", marginTop: "6px" }}>
+                  {details?.userAccount ? "Active Account" : "No Login"}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <strong style={{ fontSize: "14px", color: "#1e293b" }}>Assigned Devices ({assigned.length})</strong>
+              </div>
+              {assigned.length === 0 ? (
+                <div style={{ padding: "14px", background: "#f8fafc", borderRadius: "8px", border: "1px dashed #cbd5e1", fontSize: "13px", color: "#64748b", textAlign: "center" }}>
+                  No devices currently assigned to this employee.
+                </div>
+              ) : (
+                <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                    <thead>
+                      <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
+                        <th style={{ padding: "8px 12px" }}>DEVICE</th>
+                        <th style={{ padding: "8px 12px" }}>TYPE</th>
+                        <th style={{ padding: "8px 12px" }}>SERIAL</th>
+                        <th style={{ padding: "8px 12px" }}>STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assigned.map((item) => (
+                        <tr key={item._id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                          <td style={{ padding: "8px 12px", fontWeight: 600 }}>{item.name}</td>
+                          <td style={{ padding: "8px 12px", textTransform: "capitalize" }}>{item.type}</td>
+                          <td style={{ padding: "8px 12px", fontFamily: "monospace", fontSize: "12px" }}>{item.serialNumber}</td>
+                          <td style={{ padding: "8px 12px" }}>
+                            <span className={`status-badge status-${item.status}`}>{statusLabels[item.status] || item.status}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <strong style={{ fontSize: "14px", color: "#1e293b" }}>Equipment Requests ({reqs.length})</strong>
+              </div>
+              {reqs.length === 0 ? (
+                <div style={{ padding: "14px", background: "#f8fafc", borderRadius: "8px", border: "1px dashed #cbd5e1", fontSize: "13px", color: "#64748b", textAlign: "center" }}>
+                  No equipment requests submitted by this employee.
+                </div>
+              ) : (
+                <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                    <thead>
+                      <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
+                        <th style={{ padding: "8px 12px" }}>REQUESTED ITEM</th>
+                        <th style={{ padding: "8px 12px" }}>CATEGORY</th>
+                        <th style={{ padding: "8px 12px" }}>DATE</th>
+                        <th style={{ padding: "8px 12px" }}>STATUS</th>
+                        <th style={{ padding: "8px 12px" }}>ACTION</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reqs.map((r) => (
+                        <tr key={r._id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                          <td style={{ padding: "8px 12px", fontWeight: 600 }}>
+                            {r.item}
+                            {r.reason && <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 400 }}>{r.reason}</div>}
+                          </td>
+                          <td style={{ padding: "8px 12px", textTransform: "capitalize" }}>{r.itemType || "laptop"}</td>
+                          <td style={{ padding: "8px 12px", fontSize: "12px", color: "#64748b" }}>{r.date || "—"}</td>
+                          <td style={{ padding: "8px 12px" }}>
+                            <span className={`status-badge status-${r.status}`}>{statusLabels[r.status] || r.status}</span>
+                          </td>
+                          <td style={{ padding: "8px 12px" }}>
+                            {r.status === "pending" ? (
+                              <div style={{ display: "flex", gap: "6px" }}>
+                                <button
+                                  className="action-btn action-btn-success"
+                                  title="Approve"
+                                  onClick={async () => {
+                                    await onUpdateRequestStatus(r._id, "approved");
+                                    setDetails((d) => ({
+                                      ...d,
+                                      requests: d.requests.map((item) => (item._id === r._id ? { ...item, status: "approved" } : item)),
+                                    }));
+                                  }}
+                                >
+                                  <Check size={13} />
+                                </button>
+                                <button
+                                  className="action-btn action-btn-danger"
+                                  title="Reject"
+                                  onClick={async () => {
+                                    await onUpdateRequestStatus(r._id, "rejected");
+                                    setDetails((d) => ({
+                                      ...d,
+                                      requests: d.requests.map((item) => (item._id === r._id ? { ...item, status: "rejected" } : item)),
+                                    }));
+                                  }}
+                                >
+                                  <X size={13} />
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: "11px", color: "#94a3b8" }}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="modal-actions" style={{ marginTop: "20px" }}>
+          <button type="button" className="primary-button" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmployeesTable({ employees, loading, search, onClearSearch, onAdd, onViewRecords, onEdit, onDelete }) {
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -1606,6 +1863,9 @@ function EmployeesTable({ employees, loading, search, onClearSearch, onAdd, onEd
                   </td>
                   <td>
                     <div className="table-actions">
+                      <button className="action-btn" title="View employee records (devices & requests)" aria-label="View employee records" onClick={() => onViewRecords(emp)}>
+                        <Eye size={14} />
+                      </button>
                       <button className="action-btn" title="Edit employee" aria-label="Edit employee" onClick={() => onEdit(emp)}>
                         <Pencil size={14} />
                       </button>
@@ -1676,7 +1936,17 @@ function Dashboard({ user, onSignOut }) {
   const [resettingUser, setResettingUser] = useState(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
 
-  const visibleNavigation = navigation.filter((entry) => entry.label !== "Users" || user.role === "admin");
+  const [viewingEmployee, setViewingEmployee] = useState(null);
+
+  const visibleNavigation = user.role === "employee"
+    ? [
+        { label: "Dashboard", icon: LayoutDashboard },
+        { label: "Equipment", icon: Laptop, displayLabel: "My Devices" },
+        { label: "Requests", icon: ClipboardList, displayLabel: "My Requests" },
+        { label: "Shipments", icon: Truck, displayLabel: "My Shipments" },
+        { label: "Returns", icon: RotateCcw, displayLabel: "My Returns" },
+      ]
+    : navigation.filter((entry) => entry.label !== "Users" || user.role === "admin");
 
   useEffect(() => {
     api("/equipment")
@@ -1765,13 +2035,20 @@ function Dashboard({ user, onSignOut }) {
   const activeEmployeesCount = employees.filter((emp) => emp.status === "active").length;
   const pendingRequestsCount = requests.filter((r) => r.status === "pending").length;
 
-  const liveStats = stats.map((stat) => {
-    if (stat.label === "Total Equipment") return { ...stat, value: equipment.length };
-    if (stat.label === "Active Employees") return { ...stat, value: activeEmployeesCount };
-    if (stat.label === "Pending Requests") return { ...stat, value: pendingRequestsCount };
-    if (stat.label === "In Transit") return { ...stat, value: equipment.filter((item) => item.status === "in_transit").length };
-    return stat;
-  });
+  const liveStats = user.role === "employee"
+    ? [
+        { label: "My Devices", value: equipment.length, note: "Assigned to you", icon: Laptop },
+        { label: "Total Requests", value: requests.length, note: "Submitted requests", icon: Users },
+        { label: "Pending Requests", value: pendingRequestsCount, note: "Awaiting approval", icon: Clock },
+        { label: "In Transit", value: shipments.filter((s) => s.status === "in_transit" || s.status === "processing").length, note: "On the way to you", icon: Truck },
+      ]
+    : stats.map((stat) => {
+        if (stat.label === "Total Equipment") return { ...stat, value: equipment.length };
+        if (stat.label === "Active Employees") return { ...stat, value: activeEmployeesCount };
+        if (stat.label === "Pending Requests") return { ...stat, value: pendingRequestsCount };
+        if (stat.label === "In Transit") return { ...stat, value: equipment.filter((item) => item.status === "in_transit").length };
+        return stat;
+      });
 
   // Equipment actions
   async function confirmDeleteEquipment() {
@@ -1900,7 +2177,7 @@ function Dashboard({ user, onSignOut }) {
       <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>
         <div className="brand"><div className="brand-icon"><Package size={23} /></div><span>globit<span className="brand-dot">.</span></span><button className="mobile-close" onClick={() => setMenuOpen(false)}><X size={20} /></button></div>
         <div className="workspace-label">WORKSPACE</div>
-        <nav className="navigation">{visibleNavigation.map(({ label, icon: Icon }) => <button key={label} className={`nav-item ${activePage === label ? "nav-active" : ""}`} onClick={() => { setActivePage(label); setMenuOpen(false); setSearch(""); }}><Icon size={19} /><span>{label}</span></button>)}</nav>
+        <nav className="navigation">{visibleNavigation.map(({ label, icon: Icon, displayLabel }) => <button key={label} className={`nav-item ${activePage === label ? "nav-active" : ""}`} onClick={() => { setActivePage(label); setMenuOpen(false); setSearch(""); }}><Icon size={19} /><span>{displayLabel || label}</span></button>)}</nav>
         <div className="sidebar-bottom"><div className="help-card"><div className="help-icon">✦</div><strong>Need a hand?</strong><p>Manage your global equipment with ease.</p><button onClick={() => alert("Help centre coming soon!")}>Visit help centre ↗</button></div><div className="profile"><div className="avatar avatar-purple">{user.name[0]}</div><div className="profile-info"><strong>{user.name}</strong><span>{user.role}</span></div><button className="dashboard-signout" onClick={onSignOut} title="Sign out" aria-label="Sign out"><ArrowRight size={16} /></button></div></div>
       </aside>
       {menuOpen && <button className="mobile-overlay" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
@@ -1947,6 +2224,9 @@ function Dashboard({ user, onSignOut }) {
           onAdded={(employee) => {
             setEmployees((list) => [employee, ...list]);
             setShowAddEmployee(false);
+            if (user.role === "admin") {
+              api("/users").then(({ users: list }) => setUsers(list || [])).catch(() => {});
+            }
           }}
         />
       )}
@@ -1969,6 +2249,14 @@ function Dashboard({ user, onSignOut }) {
         />
       )}
 
+      {viewingEmployee && (
+        <EmployeeDetailsModal
+          employee={viewingEmployee}
+          onClose={() => setViewingEmployee(null)}
+          onUpdateRequestStatus={handleUpdateRequestStatus}
+        />
+      )}
+
       {deletingEmployee && (
         <DeleteConfirmModal
           title="Delete employee"
@@ -1984,6 +2272,7 @@ function Dashboard({ user, onSignOut }) {
       {showAddRequest && (
         <AddRequestModal
           employees={employees}
+          currentUser={user}
           onClose={() => setShowAddRequest(false)}
           onAdded={(request) => {
             setRequests((list) => [request, ...list]);
@@ -2048,6 +2337,7 @@ function Dashboard({ user, onSignOut }) {
           onAdded={(created) => {
             setUsers((list) => [created, ...list]);
             setShowAddUser(false);
+            api("/employees").then(({ employees: list }) => setEmployees(list || [])).catch(() => {});
           }}
         />
       )}
@@ -2091,28 +2381,41 @@ function Dashboard({ user, onSignOut }) {
         <div className="page-content">
           <section className="welcome-row">
             <div>
-              <div className="eyebrow"><span className="live-dot" /> GLOBAL EQUIPMENT OPERATIONS</div>
-              <h1>{activePage === "Dashboard" ? "Equipment overview" : activePage}</h1>
+              <div className="eyebrow"><span className="live-dot" /> {user.role === "employee" ? "EMPLOYEE SELF-SERVICE PORTAL" : "GLOBAL EQUIPMENT OPERATIONS"}</div>
+              <h1>{user.role === "employee" ? (activePage === "Dashboard" ? `Welcome, ${user.name}` : activePage === "Equipment" ? "My devices" : activePage === "Requests" ? "My requests" : activePage === "Shipments" ? "My shipments" : activePage === "Returns" ? "My returns" : activePage) : (activePage === "Dashboard" ? "Equipment overview" : activePage)}</h1>
               <p className="welcome-subtitle">
-                {activePage === "Dashboard"
-                  ? "Your workspace overview will appear here as records are added."
-                  : activePage === "Employees"
-                    ? "Manage your global workforce and employee records in one place."
-                    : activePage === "Requests"
-                      ? "Review, approve, and manage equipment requests submitted by employees."
-                      : activePage === "Shipments"
-                        ? "Create shipments, follow their progress and confirm deliveries."
-                        : activePage === "Returns"
-                          ? "Record returned devices, inspect them and put them back in stock."
-                          : activePage === "Users"
-                            ? "Create accounts, set roles and control who can sign in."
-                            : `Manage ${activePage.toLowerCase()} in one place.`}
+                {user.role === "employee"
+                  ? activePage === "Dashboard"
+                    ? "Your personal workspace. Track assigned devices, submit requests, and check shipments."
+                    : activePage === "Equipment"
+                      ? "Hardware and peripherals currently assigned to your employee account."
+                      : activePage === "Requests"
+                        ? "Equipment requests you have submitted and their live status."
+                        : activePage === "Shipments"
+                          ? "Equipment packages currently in transit to your location."
+                          : activePage === "Returns"
+                            ? "Equipment return records."
+                            : `Manage ${activePage.toLowerCase()}.`
+                  : activePage === "Dashboard"
+                    ? "Your workspace overview will appear here as records are added."
+                    : activePage === "Employees"
+                      ? "Manage your global workforce and employee records in one place."
+                      : activePage === "Requests"
+                        ? "Review, approve, and manage equipment requests submitted by employees."
+                        : activePage === "Shipments"
+                          ? "Create shipments, follow their progress and confirm deliveries."
+                          : activePage === "Returns"
+                            ? "Record returned devices, inspect them and put them back in stock."
+                            : activePage === "Users"
+                              ? "Create accounts, set roles and control who can sign in."
+                              : `Manage ${activePage.toLowerCase()} in one place.`}
               </p>
             </div>
             <button
               className="primary-button"
               onClick={() => {
-                if (activePage === "Employees") setShowAddEmployee(true);
+                if (user.role === "employee") setShowAddRequest(true);
+                else if (activePage === "Employees") setShowAddEmployee(true);
                 else if (activePage === "Equipment" || activePage === "Dashboard") setShowAddEquipment(true);
                 else if (activePage === "Requests") setShowAddRequest(true);
                 else if (activePage === "Shipments") setShowAddShipment(true);
@@ -2121,7 +2424,7 @@ function Dashboard({ user, onSignOut }) {
                 else alert("We'll add this feature when we build the forms.");
               }}
             >
-              <Plus size={18} /> Add {activePage === "Employees" ? "employee" : activePage === "Requests" ? "request" : activePage === "Dashboard" ? "equipment" : activePage.replace(/s$/, "")}
+              <Plus size={18} /> {user.role === "employee" ? "Request device" : `Add ${activePage === "Employees" ? "employee" : activePage === "Requests" ? "request" : activePage === "Dashboard" ? "equipment" : activePage.replace(/s$/, "")}`}
             </button>
           </section>
 
@@ -2143,8 +2446,10 @@ function Dashboard({ user, onSignOut }) {
               items={visibleEquipment}
               loading={loadingEquipment}
               search={search}
+              role={user.role}
               onClearSearch={() => setSearch("")}
               onAdd={() => setShowAddEquipment(true)}
+              onRequestReturn={() => setShowAddReturn(true)}
               onEdit={(item) => setEditingEquipment(item)}
               onDelete={(item) => setDeletingEquipment(item)}
             />
@@ -2155,6 +2460,7 @@ function Dashboard({ user, onSignOut }) {
               search={search}
               onClearSearch={() => setSearch("")}
               onAdd={() => setShowAddEmployee(true)}
+              onViewRecords={(emp) => setViewingEmployee(emp)}
               onEdit={(emp) => setEditingEmployee(emp)}
               onDelete={(emp) => setDeletingEmployee(emp)}
             />
@@ -2163,6 +2469,7 @@ function Dashboard({ user, onSignOut }) {
               requests={visibleRequests}
               loading={loadingRequests}
               search={search}
+              role={user.role}
               onClearSearch={() => setSearch("")}
               onAdd={() => setShowAddRequest(true)}
               onUpdateStatus={handleUpdateRequestStatus}
@@ -2208,7 +2515,7 @@ function Dashboard({ user, onSignOut }) {
             <section className="content-grid">
               <article className="panel requests-panel">
                 <div className="panel-heading">
-                  <div><h2>Recent requests</h2><p>Equipment requests submitted by employees</p></div>
+                  <div><h2>Recent requests</h2><p>{user.role === "employee" ? "Your equipment requests and status" : "Equipment requests submitted by employees"}</p></div>
                   <div style={{ display: "flex", gap: "10px" }}>
                     <button className="text-button" onClick={() => setShowAddRequest(true)}>Add request <Plus size={14} /></button>
                     <button className="text-button" onClick={() => setActivePage("Requests")}>View all <ArrowUpRight size={15} /></button>
@@ -2219,7 +2526,7 @@ function Dashboard({ user, onSignOut }) {
                     <thead><tr><th>EMPLOYEE</th><th>EQUIPMENT</th><th>DATE</th><th>STATUS</th></tr></thead>
                     <tbody>
                       {visibleRequests.length === 0 ? (
-                        <tr><td colSpan="4" className="empty-state">{search ? "No matching requests found." : "No requests yet. New requests will appear here."}</td></tr>
+                        <tr><td colSpan="4" className="empty-state">{search ? "No matching requests found." : user.role === "employee" ? "You have not submitted any device requests yet." : "No requests yet. New requests will appear here."}</td></tr>
                       ) : (
                         visibleRequests.map((request) => (
                           <tr key={request._id}>

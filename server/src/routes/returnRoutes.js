@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import { z } from 'zod'
 import EquipmentReturn from '../models/EquipmentReturn.js'
 import Equipment from '../models/Equipment.js'
+import Employee from '../models/Employee.js'
 import { protect, restrictTo } from '../middleware/auth.js'
 
 const router = Router()
@@ -35,11 +36,26 @@ const populateFields = [
 ]
 
 router.get('/', async (req, res) => {
-    const returns = await EquipmentReturn.find().sort({ createdAt: -1 }).populate(populateFields)
-    res.json({ returns })
+    try {
+        let query = {}
+        // If employee role, only show returns for this employee
+        if (req.user.role === 'employee') {
+            const employee = await Employee.findOne({ email: req.user.email.toLowerCase() })
+            if (!employee) {
+                return res.json({ returns: [] })
+            }
+            query = { employee: employee._id }
+        }
+
+        const returns = await EquipmentReturn.find(query).sort({ createdAt: -1 }).populate(populateFields)
+        res.json({ returns })
+    } catch (err) {
+        res.status(500).json({ message: err.message || 'Failed to fetch returns' })
+    }
 })
 
-router.post('/', restrictTo('admin', 'manager'), async (req, res) => {
+// Employees can request returns for their own assigned equipment; admins/managers can create returns for any assigned equipment
+router.post('/', async (req, res) => {
     const parsed = createSchema.safeParse(req.body)
     if (!parsed.success) {
         return res.status(400).json({ message: parsed.error.issues[0].message })
@@ -50,6 +66,14 @@ router.post('/', restrictTo('admin', 'manager'), async (req, res) => {
     if (!item) return res.status(404).json({ message: 'Equipment not found' })
     if (item.status !== 'assigned' || !item.assignedTo) {
         return res.status(409).json({ message: 'Only equipment assigned to an employee can be returned' })
+    }
+
+    // If logged in as employee, make sure this equipment is actually assigned to them!
+    if (req.user.role === 'employee') {
+        const emp = await Employee.findOne({ email: req.user.email.toLowerCase() })
+        if (!emp || !item.assignedTo.equals(emp._id)) {
+            return res.status(403).json({ message: 'You can only return equipment currently assigned to you' })
+        }
     }
 
     const alreadyOpen = await EquipmentReturn.exists({
@@ -64,7 +88,7 @@ router.post('/', restrictTo('admin', 'manager'), async (req, res) => {
         equipment,
         employee: item.assignedTo,
         reason,
-        condition,
+        condition: condition || 'good',
     })
     await equipmentReturn.populate(populateFields)
     res.status(201).json({ equipmentReturn })

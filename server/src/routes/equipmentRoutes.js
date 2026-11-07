@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import Equipment from '../models/Equipment.js'
+import Employee from '../models/Employee.js'
 import { protect, restrictTo } from '../middleware/auth.js'
 
 const router = Router()
@@ -20,7 +21,17 @@ const equipmentUpdateSchema = equipmentSchema.partial()
 
 router.get('/', async (req, res) => {
     try {
-        const items = await Equipment.find()
+        let query = {}
+        // If employee role, only show equipment assigned to this specific employee!
+        if (req.user.role === 'employee') {
+            const employee = await Employee.findOne({ email: req.user.email.toLowerCase() })
+            if (!employee) {
+                return res.json({ items: [] })
+            }
+            query = { assignedTo: employee._id }
+        }
+
+        const items = await Equipment.find(query)
             .populate('assignedTo', 'name email department country')
             .sort({ createdAt: -1 })
         res.json({ items })
