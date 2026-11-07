@@ -24,6 +24,12 @@ const requestSchema = new mongoose.Schema(
             enum: ['pending', 'approved', 'rejected', 'fulfilled'],
             default: 'pending',
         },
+        rejectionReason: { type: String, trim: true, default: '' },
+        shipment: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Shipment',
+            default: null,
+        },
         date: { type: String },
     },
     { timestamps: true }

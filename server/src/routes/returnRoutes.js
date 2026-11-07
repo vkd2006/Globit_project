@@ -15,6 +15,7 @@ const conditionEnum = z.enum(['good', 'damaged'])
 const createSchema = z.object({
     equipment: objectId,
     reason: z.string().trim().optional(),
+    collectionAddress: z.string().trim().optional().default(''),
     condition: conditionEnum.optional(),
 })
 
@@ -60,7 +61,7 @@ router.post('/', async (req, res) => {
     if (!parsed.success) {
         return res.status(400).json({ message: parsed.error.issues[0].message })
     }
-    const { equipment, reason, condition } = parsed.data
+    const { equipment, reason, condition, collectionAddress } = parsed.data
 
     const item = await Equipment.findById(equipment)
     if (!item) return res.status(404).json({ message: 'Equipment not found' })
@@ -88,6 +89,7 @@ router.post('/', async (req, res) => {
         equipment,
         employee: item.assignedTo,
         reason,
+        collectionAddress: collectionAddress || '',
         condition: condition || 'good',
     })
     await equipmentReturn.populate(populateFields)

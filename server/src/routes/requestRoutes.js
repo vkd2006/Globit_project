@@ -14,6 +14,7 @@ const requestCreateSchema = z.object({
     item: z.string().trim().min(1, 'Equipment item is required'),
     itemType: z.enum(['laptop', 'monitor', 'phone', 'keyboard', 'mouse', 'headset', 'other']).optional().default('laptop'),
     reason: z.string().trim().optional().default(''),
+    rejectionReason: z.string().trim().optional().default(''),
     status: z.enum(['pending', 'approved', 'rejected', 'fulfilled']).optional().default('pending'),
 })
 
@@ -22,6 +23,7 @@ const requestUpdateSchema = z.object({
     item: z.string().trim().min(1).optional(),
     itemType: z.enum(['laptop', 'monitor', 'phone', 'keyboard', 'mouse', 'headset', 'other']).optional(),
     reason: z.string().trim().optional(),
+    rejectionReason: z.string().trim().optional(),
     status: z.enum(['pending', 'approved', 'rejected', 'fulfilled']).optional(),
 })
 
@@ -46,7 +48,7 @@ router.get('/', async (req, res) => {
 
         const items = await Request.find(query)
             .populate('employee', 'name email department country')
-            .populate('equipment', 'name type serialNumber status country')
+            .populate('equipment', 'name type serialNumber status country').populate('shipment', 'trackingNumber carrier status')
             .sort({ createdAt: -1 })
 
         const filtered = search
@@ -91,6 +93,18 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ message: parsed.error.issues[0].message })
     }
 
+    if (parsed.data.equipment) {
+        const chosen = await Equipment.findById(parsed.data.equipment)
+        if (!chosen) {
+            return res.status(404).json({ message: 'Selected equipment not found' })
+        }
+        if (chosen.status !== 'available') {
+            return res.status(400).json({
+                message: `This equipment is no longer available (currently ${chosen.status}). Please select another device.`
+            })
+        }
+    }
+
     try {
         const employeeExists = await Employee.findById(parsed.data.employee)
         if (!employeeExists) {
@@ -110,7 +124,7 @@ router.post('/', async (req, res) => {
 
         const populated = await Request.findById(item._id)
             .populate('employee', 'name email department country')
-            .populate('equipment', 'name type serialNumber status country')
+            .populate('equipment', 'name type serialNumber status country').populate('shipment', 'trackingNumber carrier status')
 
         res.status(201).json({ request: populated })
     } catch (err) {
@@ -136,21 +150,48 @@ router.put('/:id', restrictTo('admin', 'manager'), async (req, res) => {
             runValidators: true,
         })
             .populate('employee', 'name email department country')
-            .populate('equipment', 'name type serialNumber status country')
+            .populate('equipment', 'name type serialNumber status country').populate('shipment', 'trackingNumber carrier status')
 
-        // When approved or fulfilled, automatically assign the linked equipment to this employee!
+        // When approved or fulfilled, check availability, auto-assign, and auto-cancel competing requests!
         const targetEquipmentId = parsed.data.equipment || item.equipment?._id || item.equipment
         if ((parsed.data.status === 'approved' || parsed.data.status === 'fulfilled') && targetEquipmentId) {
+            const currentEquip = await Equipment.findById(targetEquipmentId)
+            const targetEmployeeId = (item.employee?._id || item.employee).toString()
+
+            if (currentEquip && currentEquip.assignedTo && currentEquip.assignedTo.toString() !== targetEmployeeId) {
+                return res.status(409).json({
+                    message: 'Cannot approve request: This equipment has already been assigned to another employee.'
+                })
+            }
+
             await Equipment.findByIdAndUpdate(targetEquipmentId, {
                 status: 'assigned',
-                assignedTo: item.employee?._id || item.employee,
+                assignedTo: targetEmployeeId,
             })
+
+            // AUTO-CHECKER: Find all OTHER pending requests for this same equipment and cancel them
+            const assignedEmpName = item.employee?.name || 'another employee'
+            await Request.updateMany(
+                {
+                    _id: { $ne: item._id },
+                    equipment: targetEquipmentId,
+                    status: 'pending',
+                },
+                {
+                    status: 'rejected',
+                    rejectionReason: `Cancelled automatically: Equipment was assigned to ${assignedEmpName}.`,
+                }
+            )
         } else if (parsed.data.status === 'rejected' && targetEquipmentId) {
-            // If rejected, ensure equipment remains or returns to available
-            await Equipment.findByIdAndUpdate(targetEquipmentId, {
-                status: 'available',
-                assignedTo: null,
-            })
+            // If rejected and currently assigned to this user, reset to available
+            const currentEquip = await Equipment.findById(targetEquipmentId)
+            const targetEmployeeId = (item.employee?._id || item.employee).toString()
+            if (currentEquip && currentEquip.assignedTo?.toString() === targetEmployeeId) {
+                await Equipment.findByIdAndUpdate(targetEquipmentId, {
+                    status: 'available',
+                    assignedTo: null,
+                })
+            }
         }
 
         res.json({ request: item })

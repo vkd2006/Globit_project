@@ -17,6 +17,7 @@ const createSchema = z.object({
     carrier: z.string().trim().optional(),
     trackingNumber: z.string().trim().optional(),
     destinationCountry: z.string().trim().optional(),
+    request: z.string().optional(),
 })
 
 const statusSchema = z.object({
@@ -80,6 +81,19 @@ router.post('/', restrictTo('admin', 'manager'), async (req, res) => {
         timeline: [{ status: 'processing', note: 'Shipment created' }],
     })
     await syncEquipment(shipment)
+
+    // If shipment was created from an approved request, link and fulfill request!
+    if (parsed.data.request) {
+        try {
+            await mongoose.model('Request').findByIdAndUpdate(parsed.data.request, {
+                status: 'fulfilled',
+                shipment: shipment._id,
+            })
+        } catch (e) {
+            console.warn('Could not link request to shipment:', e.message)
+        }
+    }
+
     await shipment.populate(populateFields)
     res.status(201).json({ shipment })
 })

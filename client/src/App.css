@@ -1640,6 +1640,32 @@ button:disabled {
 .table-wrap {
   width: 100%;
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: 560px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-wrap::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.table-wrap::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.table-wrap::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+.table-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #fafbfe;
+  box-shadow: 0 1px 0 #f0f1f6;
 }
 
 table {

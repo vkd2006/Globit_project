@@ -191,6 +191,7 @@ function AddEquipmentModal({ onClose, onAdded, employees = [] }) {
   const [form, setForm] = useState({
     name: "",
     type: "laptop",
+    quantity: 1,
     serialNumber: "",
     country: "",
     notes: "",
@@ -210,11 +211,12 @@ function AddEquipmentModal({ onClose, onAdded, employees = [] }) {
     try {
       const payload = {
         ...form,
+        quantity: Number(form.quantity) || 1,
         assignedTo: form.assignedTo || null,
         status: form.assignedTo ? "assigned" : "available",
       };
-      const { item } = await api("/equipment", { method: "POST", body: JSON.stringify(payload) });
-      onAdded(item);
+      const res = await api("/equipment", { method: "POST", body: JSON.stringify(payload) });
+      onAdded(res.item, res.items);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -226,13 +228,13 @@ function AddEquipmentModal({ onClose, onAdded, employees = [] }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Add equipment" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <div><h2>Add equipment</h2><p>Register a new device in your workspace.</p></div>
+          <div><h2>Add equipment</h2><p>Register new single or bulk inventory in your workspace.</p></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="form-field">
-            <label htmlFor="eq-name">Name</label>
-            <input id="eq-name" value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. MacBook Pro 14" required />
+            <label htmlFor="eq-name">Equipment name / Model</label>
+            <input id="eq-name" value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Dell UltraSharp 27 Monitor or MacBook Pro 16" required />
           </div>
           <div className="form-row">
             <div className="form-field">
@@ -242,33 +244,63 @@ function AddEquipmentModal({ onClose, onAdded, employees = [] }) {
               </select>
             </div>
             <div className="form-field">
-              <label htmlFor="eq-country">Country</label>
-              <input id="eq-country" value={form.country} onChange={(e) => update("country", e.target.value)} placeholder="e.g. India" />
+              <label htmlFor="eq-quantity">Quantity in stock</label>
+              <input
+                id="eq-quantity"
+                type="number"
+                min="1"
+                max="100"
+                value={form.quantity}
+                onChange={(e) => update("quantity", e.target.value)}
+                required
+              />
             </div>
           </div>
           <div className="form-field">
-            <label htmlFor="eq-serial">Serial number</label>
-            <input id="eq-serial" value={form.serialNumber} onChange={(e) => update("serialNumber", e.target.value)} placeholder="e.g. C02XK1ABJG5H" required />
+            <label htmlFor="eq-serial">
+              {Number(form.quantity) > 1 ? "Base serial prefix (optional — auto-indexed per unit)" : "Serial number (optional — auto-generated if blank)"}
+            </label>
+            <input
+              id="eq-serial"
+              value={form.serialNumber}
+              onChange={(e) => update("serialNumber", e.target.value)}
+              placeholder={Number(form.quantity) > 1 ? "e.g. DEL-27-4K (will create DEL-27-4K-01, -02...)" : "e.g. C02XK1ABJG5H"}
+            />
+            <span className="cell-muted" style={{ fontSize: "12px" }}>
+              {Number(form.quantity) > 1
+                ? "Each physical unit will receive an independent sequential serial number so it can be assigned individually."
+                : "Leave blank to automatically generate a unique asset tracking serial number."}
+            </span>
           </div>
-          <div className="form-field">
-            <label htmlFor="eq-assigned">Assign to employee (optional)</label>
-            <select id="eq-assigned" value={form.assignedTo} onChange={(e) => update("assignedTo", e.target.value)}>
-              <option value="">Unassigned (Available)</option>
-              {employees.map((emp) => (
-                <option key={emp._id} value={emp._id}>
-                  {emp.name} {emp.department ? `(${emp.department})` : ""} — {emp.email}
-                </option>
-              ))}
-            </select>
+          <div className="form-row">
+            <div className="form-field">
+              <label htmlFor="eq-country">Location / Country</label>
+              <input id="eq-country" value={form.country} onChange={(e) => update("country", e.target.value)} placeholder="e.g. United States or Germany" />
+            </div>
+            {Number(form.quantity) === 1 && (
+              <div className="form-field">
+                <label htmlFor="eq-assigned">Assign to employee (optional)</label>
+                <select id="eq-assigned" value={form.assignedTo} onChange={(e) => update("assignedTo", e.target.value)}>
+                  <option value="">Unassigned (Available in stock)</option>
+                  {employees.map((emp) => (
+                    <option key={emp._id} value={emp._id}>
+                      {emp.name} {emp.department ? `(${emp.department})` : ""} — {emp.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <div className="form-field">
             <label htmlFor="eq-notes">Notes (optional)</label>
-            <textarea id="eq-notes" value={form.notes} onChange={(e) => update("notes", e.target.value)} placeholder="Anything worth remembering" />
+            <textarea id="eq-notes" value={form.notes} onChange={(e) => update("notes", e.target.value)} placeholder="Batch notes, specifications, or vendor info" />
           </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="modal-actions">
             <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
-            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving..." : "Add equipment"}</button>
+            <button type="submit" className="primary-button" disabled={saving}>
+              {saving ? "Saving..." : Number(form.quantity) > 1 ? `Add ${form.quantity} items` : "Add equipment"}
+            </button>
           </div>
         </form>
       </div>
@@ -808,14 +840,14 @@ function AddRequestModal({ employees = [], currentUser = null, onClose, onAdded 
   );
 }
 
-function RequestsTable({ requests, loading, search, role, onClearSearch, onAdd, onUpdateStatus, onDelete }) {
+function RequestsTable({ requests, loading, search, role, onClearSearch, onAdd, onUpdateStatus, onDispatch, onDelete }) {
   const isEmployee = role === "employee";
   return (
     <section className="panel">
       <div className="panel-heading">
         <div>
           <h2>{isEmployee ? "My requests" : "All requests"}</h2>
-          <p>{isEmployee ? "Equipment requests submitted by you and their live approval status" : "Equipment requests submitted by team members"}</p>
+          <p>{isEmployee ? "Equipment requests submitted by you and their live approval status" : "Equipment requests submitted by team members (approve to assign & dispatch)"}</p>
         </div>
         <button className="text-button" onClick={onAdd}>{isEmployee ? "Request device" : "Add request"} <Plus size={15} /></button>
       </div>
@@ -865,11 +897,21 @@ function RequestsTable({ requests, loading, search, role, onClearSearch, onAdd, 
                   <td>{req.date || "—"}</td>
                   <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.reason}>
                     {req.reason || "—"}
+                    {req.rejectionReason && (
+                      <div style={{ fontSize: "11px", color: "#ef4444", marginTop: "2px" }} title={req.rejectionReason}>
+                        ✕ {req.rejectionReason}
+                      </div>
+                    )}
                   </td>
                   <td>
                     <span className={`status-badge status-${req.status}`}>
                       {statusLabels[req.status] || req.status}
                     </span>
+                    {req.shipment && (
+                      <span className="cell-muted" style={{ fontSize: "10px", display: "block", marginTop: "2px", color: "#16a34a" }}>
+                        Tracking: {req.shipment.carrier || "Carrier"} #{req.shipment.trackingNumber || "—"}
+                      </span>
+                    )}
                   </td>
                   <td>
                     <div className="table-actions">
@@ -893,6 +935,34 @@ function RequestsTable({ requests, loading, search, role, onClearSearch, onAdd, 
                           </button>
                         </>
                       )}
+                      {!isEmployee && req.status === "approved" && (
+                        <button
+                          className="action-btn"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "5px",
+                            width: "auto",
+                            padding: "4px 9px",
+                            fontSize: "11px",
+                            fontWeight: "600",
+                            color: "#6554d9",
+                            background: "#f0edff",
+                            border: "1px solid #d9d2fc",
+                            borderRadius: "6px"
+                          }}
+                          title="Create and dispatch shipment for this approved equipment"
+                          aria-label="Dispatch shipment"
+                          onClick={() => onDispatch(req)}
+                        >
+                          <Truck size={13} /> Dispatch
+                        </button>
+                      )}
+                      {!isEmployee && req.status === "fulfilled" && (
+                        <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: "600" }}>
+                          ✓ Dispatched
+                        </span>
+                      )}
                       {!isEmployee && (
                         <button
                           className="action-btn action-btn-danger"
@@ -905,7 +975,13 @@ function RequestsTable({ requests, loading, search, role, onClearSearch, onAdd, 
                       )}
                       {isEmployee && (
                         <span className="cell-muted" style={{ fontSize: "12px" }}>
-                          {req.status === "pending" ? "Awaiting review" : req.status === "approved" ? "Approved & Assigned" : req.status === "rejected" ? "Declined" : "Fulfilled"}
+                          {req.status === "pending"
+                            ? "Awaiting review"
+                            : req.status === "approved"
+                            ? "Approved & Assigned"
+                            : req.status === "rejected"
+                            ? "Cancelled"
+                            : "Dispatched"}
                         </span>
                       )}
                     </div>
@@ -924,16 +1000,16 @@ function RequestsTable({ requests, loading, search, role, onClearSearch, onAdd, 
   );
 }
 
-function AddShipmentModal({ equipment = [], employees = [], onClose, onAdded }) {
-  // Only items that are free to ship (not already on the road, not retired)
+function AddShipmentModal({ equipment = [], employees = [], initialRequest = null, onClose, onAdded }) {
   const shippable = equipment.filter((item) => item.status === "available" || item.status === "assigned");
   const recipients = employees.filter((emp) => emp.status === "active");
+
   const [form, setForm] = useState({
-    equipment: "",
-    employee: "",
-    carrier: "",
+    equipment: initialRequest?.equipment?._id || initialRequest?.equipment || "",
+    employee: initialRequest?.employee?._id || initialRequest?.employee || "",
+    carrier: "DHL",
     trackingNumber: "",
-    destinationCountry: "",
+    destinationCountry: initialRequest?.employee?.country || "",
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -941,7 +1017,6 @@ function AddShipmentModal({ equipment = [], employees = [], onClose, onAdded }) 
   function update(field, value) {
     setForm((current) => {
       const next = { ...current, [field]: value };
-      // Suggest the employee's country as the destination
       if (field === "employee" && !current.destinationCountry) {
         const chosen = employees.find((emp) => emp._id === value);
         if (chosen?.country) next.destinationCountry = chosen.country;
@@ -953,14 +1028,18 @@ function AddShipmentModal({ equipment = [], employees = [], onClose, onAdded }) 
   async function handleSubmit(event) {
     event.preventDefault();
     if (!form.equipment || !form.employee) {
-      setError("Choose the equipment and the employee.");
+      setError("Choose the equipment and the recipient employee.");
       return;
     }
     setSaving(true);
     setError("");
     try {
-      const { shipment } = await api("/shipments", { method: "POST", body: JSON.stringify(form) });
-      onAdded(shipment);
+      const payload = {
+        ...form,
+        request: initialRequest?._id || undefined,
+      };
+      const { shipment } = await api("/shipments", { method: "POST", body: JSON.stringify(payload) });
+      onAdded(shipment, initialRequest?._id);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -972,22 +1051,26 @@ function AddShipmentModal({ equipment = [], employees = [], onClose, onAdded }) 
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Add shipment" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <div><h2>New shipment</h2><p>Send a device to an employee and track it until it arrives.</p></div>
+          <div><h2>Dispatch shipment</h2><p>Ship equipment to an employee and track carrier progress.</p></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit}>
+          {initialRequest && (
+            <div style={{ padding: "10px 14px", background: "#f0edff", border: "1px solid #d9d2fc", borderRadius: "8px", marginBottom: "16px", fontSize: "12px", color: "#5140c0" }}>
+              📦 <strong>Fulfilling Request:</strong> {initialRequest.item} for <strong>{initialRequest.employee?.name}</strong>
+            </div>
+          )}
           <div className="form-field">
-            <label htmlFor="ship-equipment">Equipment</label>
+            <label htmlFor="ship-equipment">Equipment to ship</label>
             <select id="ship-equipment" value={form.equipment} onChange={(e) => update("equipment", e.target.value)} required>
               <option value="">Select equipment...</option>
               {shippable.map((item) => (
-                <option key={item._id} value={item._id}>{item.name} — {item.serialNumber}</option>
+                <option key={item._id} value={item._id}>{item.name} — SN: {item.serialNumber} ({item.status})</option>
               ))}
             </select>
-            {shippable.length === 0 && <span className="cell-muted">No equipment is free to ship right now.</span>}
           </div>
           <div className="form-field">
-            <label htmlFor="ship-employee">Send to employee</label>
+            <label htmlFor="ship-employee">Recipient employee</label>
             <select id="ship-employee" value={form.employee} onChange={(e) => update("employee", e.target.value)} required>
               <option value="">Select employee...</option>
               {recipients.map((emp) => (
@@ -999,22 +1082,22 @@ function AddShipmentModal({ equipment = [], employees = [], onClose, onAdded }) 
           </div>
           <div className="form-row">
             <div className="form-field">
-              <label htmlFor="ship-carrier">Carrier (optional)</label>
-              <input id="ship-carrier" value={form.carrier} onChange={(e) => update("carrier", e.target.value)} placeholder="e.g. DHL" />
+              <label htmlFor="ship-carrier">Carrier</label>
+              <input id="ship-carrier" value={form.carrier} onChange={(e) => update("carrier", e.target.value)} placeholder="e.g. DHL, FedEx, UPS" required />
             </div>
             <div className="form-field">
-              <label htmlFor="ship-tracking">Tracking number (optional)</label>
-              <input id="ship-tracking" value={form.trackingNumber} onChange={(e) => update("trackingNumber", e.target.value)} placeholder="e.g. 1Z999AA10123456784" />
+              <label htmlFor="ship-tracking">Tracking number</label>
+              <input id="ship-tracking" value={form.trackingNumber} onChange={(e) => update("trackingNumber", e.target.value)} placeholder="e.g. 1Z999AA10123456784" required />
             </div>
           </div>
           <div className="form-field">
-            <label htmlFor="ship-country">Destination country</label>
-            <input id="ship-country" value={form.destinationCountry} onChange={(e) => update("destinationCountry", e.target.value)} placeholder="e.g. India" />
+            <label htmlFor="ship-country">Destination country / Location</label>
+            <input id="ship-country" value={form.destinationCountry} onChange={(e) => update("destinationCountry", e.target.value)} placeholder="e.g. Germany or United States" required />
           </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="modal-actions">
             <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
-            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Creating..." : "Create shipment"}</button>
+            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Dispatching..." : "Dispatch shipment"}</button>
           </div>
         </form>
       </div>
@@ -1022,7 +1105,7 @@ function AddShipmentModal({ equipment = [], employees = [], onClose, onAdded }) 
   );
 }
 
-function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd, onTrack, onStatus, onDelete }) {
+function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onTrack, onStatus, onDelete }) {
   const canManage = role === "admin" || role === "manager";
   const canDelete = role === "admin";
 
@@ -1031,9 +1114,8 @@ function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd
       <div className="panel-heading">
         <div>
           <h2>{canManage ? "All shipments" : "My shipments"}</h2>
-          <p>{canManage ? "Equipment on its way to your team, worldwide" : "Equipment packages currently in transit to your location"}</p>
+          <p>{canManage ? "Active equipment shipments (dispatched directly from approved employee requests)" : "Equipment packages currently in transit to your location"}</p>
         </div>
-        {canManage && <button className="text-button" onClick={onAdd}>Add shipment <Plus size={15} /></button>}
       </div>
       <div className="table-wrap">
         <table>
@@ -1166,10 +1248,20 @@ function TrackingModal({ shipment, onClose }) {
   );
 }
 
-function AddReturnModal({ equipment = [], onClose, onAdded }) {
-  // Only devices currently assigned to someone can come back
+function AddReturnModal({ equipment = [], initialEquipment = null, currentUser = null, onClose, onAdded }) {
   const returnable = equipment.filter((item) => item.status === "assigned" && item.assignedTo);
-  const [form, setForm] = useState({ equipment: "", reason: "", condition: "good" });
+  const defaultAddress = initialEquipment?.country
+    ? `Office or Home pickup (${initialEquipment.country})`
+    : currentUser?.country
+    ? `Pickup at ${currentUser.name}'s location (${currentUser.country})`
+    : "";
+
+  const [form, setForm] = useState({
+    equipment: initialEquipment?._id || (returnable[0]?._id || ""),
+    collectionAddress: defaultAddress,
+    reason: "",
+    condition: "good",
+  });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -1181,6 +1273,10 @@ function AddReturnModal({ equipment = [], onClose, onAdded }) {
     event.preventDefault();
     if (!form.equipment) {
       setError("Choose the equipment that is being returned.");
+      return;
+    }
+    if (!form.collectionAddress.trim()) {
+      setError("Please provide the collection address where the device will be picked up.");
       return;
     }
     setSaving(true);
@@ -1199,37 +1295,55 @@ function AddReturnModal({ equipment = [], onClose, onAdded }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Add return" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <div><h2>New return</h2><p>Record a device that is coming back from an employee.</p></div>
+          <div><h2>Request device return</h2><p>Schedule equipment recovery and specify the pickup location.</p></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit}>
+          {initialEquipment && (
+            <div style={{ padding: "10px 14px", background: "#f0edff", border: "1px solid #d9d2fc", borderRadius: "8px", marginBottom: "16px", fontSize: "12px", color: "#5140c0" }}>
+              🔄 <strong>Returning:</strong> {initialEquipment.name} (SN: {initialEquipment.serialNumber})
+            </div>
+          )}
           <div className="form-field">
-            <label htmlFor="ret-equipment">Equipment</label>
+            <label htmlFor="ret-equipment">Equipment to return</label>
             <select id="ret-equipment" value={form.equipment} onChange={(e) => update("equipment", e.target.value)} required>
               <option value="">Select equipment...</option>
-              {returnable.map((item) => (
+              {(initialEquipment ? [initialEquipment, ...returnable.filter(r => r._id !== initialEquipment._id)] : returnable).map((item) => (
                 <option key={item._id} value={item._id}>
-                  {item.name} — {item.assignedTo?.name || "assigned employee"}
+                  {item.name} — SN: {item.serialNumber} ({item.assignedTo?.name || "Assigned"})
                 </option>
               ))}
             </select>
-            {returnable.length === 0 && <span className="cell-muted">No equipment is assigned to an employee right now.</span>}
+          </div>
+          <div className="form-field">
+            <label htmlFor="ret-address">Collection / Pickup address</label>
+            <textarea
+              id="ret-address"
+              value={form.collectionAddress}
+              onChange={(e) => update("collectionAddress", e.target.value)}
+              placeholder="Enter full street address where the courier will collect the equipment"
+              rows={2}
+              required
+            />
+            <span className="cell-muted" style={{ fontSize: "12px" }}>
+              Courier pickup will be arranged at this specified collection address.
+            </span>
           </div>
           <div className="form-field">
             <label htmlFor="ret-condition">Expected condition</label>
             <select id="ret-condition" value={form.condition} onChange={(e) => update("condition", e.target.value)}>
-              <option value="good">Good</option>
-              <option value="damaged">Damaged</option>
+              <option value="good">Good (Fully functional)</option>
+              <option value="damaged">Damaged (Needs repair / replacement)</option>
             </select>
           </div>
           <div className="form-field">
-            <label htmlFor="ret-reason">Reason (optional)</label>
-            <textarea id="ret-reason" value={form.reason} onChange={(e) => update("reason", e.target.value)} placeholder="e.g. Employee is leaving the company" />
+            <label htmlFor="ret-reason">Return reason (optional)</label>
+            <textarea id="ret-reason" value={form.reason} onChange={(e) => update("reason", e.target.value)} placeholder="e.g. Project finished, Hardware refresh, or Role change" />
           </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="modal-actions">
             <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
-            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving..." : "Create return"}</button>
+            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Submitting..." : "Schedule return"}</button>
           </div>
         </form>
       </div>
@@ -1328,8 +1442,16 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
                         </div>
                       </td>
                     )}
-                    <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.reason}>
-                      {item.reason || "—"}
+                    <td style={{ maxWidth: "240px", overflow: "hidden", textOverflow: "ellipsis" }} title={item.reason}>
+                      <div>{item.reason || "—"}</div>
+                      {item.collectionAddress && (
+                        <div style={{ fontSize: "11px", color: "#64748b", marginTop: "3px", display: "flex", alignItems: "center", gap: "3px" }} title={`Collection: ${item.collectionAddress}`}>
+                          <MapPin size={11} style={{ flexShrink: 0, color: "#6554d9" }} />
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {item.collectionAddress}
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="cell-capitalize">{item.condition}</td>
                     <td>
@@ -1996,12 +2118,14 @@ function Dashboard({ user, onSignOut }) {
   const [shipments, setShipments] = useState([]);
   const [loadingShipments, setLoadingShipments] = useState(true);
   const [showAddShipment, setShowAddShipment] = useState(false);
+  const [dispatchRequest, setDispatchRequest] = useState(null);
   const [trackingShipment, setTrackingShipment] = useState(null);
 
   // Returns state
   const [returnsList, setReturnsList] = useState([]);
   const [loadingReturns, setLoadingReturns] = useState(true);
   const [showAddReturn, setShowAddReturn] = useState(false);
+  const [returnEquipment, setReturnEquipment] = useState(null);
   const [completingReturn, setCompletingReturn] = useState(null);
 
   // Users state (only admins can open the Users page)
@@ -2265,8 +2389,12 @@ function Dashboard({ user, onSignOut }) {
         <AddEquipmentModal
           employees={employees}
           onClose={() => setShowAddEquipment(false)}
-          onAdded={(item) => {
-            setEquipment((list) => [item, ...list]);
+          onAdded={(item, items) => {
+            if (Array.isArray(items) && items.length > 0) {
+              setEquipment((list) => [...items, ...list]);
+            } else {
+              setEquipment((list) => [item, ...list]);
+            }
             setShowAddEquipment(false);
           }}
         />
@@ -2375,10 +2503,18 @@ function Dashboard({ user, onSignOut }) {
         <AddShipmentModal
           equipment={equipment}
           employees={employees}
-          onClose={() => setShowAddShipment(false)}
-          onAdded={(shipment) => {
+          initialRequest={dispatchRequest}
+          onClose={() => {
+            setShowAddShipment(false);
+            setDispatchRequest(null);
+          }}
+          onAdded={(shipment, fulfilledRequestId) => {
             setShipments((list) => [shipment, ...list]);
             setShowAddShipment(false);
+            setDispatchRequest(null);
+            if (fulfilledRequestId) {
+              setRequests((list) => list.map((r) => (r._id === fulfilledRequestId ? { ...r, status: "fulfilled", shipment } : r)));
+            }
             refreshEquipment();
           }}
         />
@@ -2392,10 +2528,17 @@ function Dashboard({ user, onSignOut }) {
       {showAddReturn && (
         <AddReturnModal
           equipment={equipment}
-          onClose={() => setShowAddReturn(false)}
+          initialEquipment={returnEquipment}
+          currentUser={user}
+          onClose={() => {
+            setShowAddReturn(false);
+            setReturnEquipment(null);
+          }}
           onAdded={(equipmentReturn) => {
             setReturnsList((list) => [equipmentReturn, ...list]);
             setShowAddReturn(false);
+            setReturnEquipment(null);
+            refreshEquipment();
           }}
         />
       )}
@@ -2527,7 +2670,7 @@ function Dashboard({ user, onSignOut }) {
               role={user.role}
               onClearSearch={() => setSearch("")}
               onAdd={() => setShowAddEquipment(true)}
-              onRequestReturn={() => setShowAddReturn(true)}
+              onRequestReturn={(item) => { setReturnEquipment(item); setShowAddReturn(true); }}
               onEdit={(item) => setEditingEquipment(item)}
               onDelete={(item) => setDeletingEquipment(item)}
             />
@@ -2551,6 +2694,10 @@ function Dashboard({ user, onSignOut }) {
               onClearSearch={() => setSearch("")}
               onAdd={() => setShowAddRequest(true)}
               onUpdateStatus={handleUpdateRequestStatus}
+              onDispatch={(req) => {
+                setDispatchRequest(req);
+                setShowAddShipment(true);
+              }}
               onDelete={(req) => setDeletingRequest(req)}
             />
           ) : activePage === "Shipments" ? (
@@ -2560,7 +2707,6 @@ function Dashboard({ user, onSignOut }) {
               search={search}
               role={user.role}
               onClearSearch={() => setSearch("")}
-              onAdd={() => setShowAddShipment(true)}
               onTrack={(shipment) => setTrackingShipment(shipment)}
               onStatus={handleShipmentStatus}
               onDelete={handleDeleteShipment}
