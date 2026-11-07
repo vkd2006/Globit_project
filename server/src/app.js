@@ -10,6 +10,7 @@ import requestRoutes from './routes/requestRoutes.js'
 import shipmentRoutes from './routes/shipmentRoutes.js'
 import returnRoutes from './routes/returnRoutes.js'
 import userRoutes from './routes/userRoutes.js'
+import notificationRoutes from './routes/notificationRoutes.js'
 
 const app = express()
 
@@ -18,15 +19,16 @@ app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }))
 app.use(express.json())
 app.use(cookieParser())
 app.use(morgan('dev'))
-app.use('/api/returns', returnRoutes)
+
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
 app.use('/api/auth', authRoutes)
 app.use('/api/equipment', equipmentRoutes)
 app.use('/api/employees', employeeRoutes)
 app.use('/api/requests', requestRoutes)
 app.use('/api/shipments', shipmentRoutes)
-app.use('/api/auth', authRoutes)
+app.use('/api/returns', returnRoutes)
 app.use('/api/users', userRoutes)
+app.use('/api/notifications', notificationRoutes)
 
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }))
 app.use((err, req, res, next) => {

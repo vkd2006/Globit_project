@@ -1,3 +1,5 @@
+import Notification from '../models/Notification.js'
+import User from '../models/User.js'
 import { Router } from 'express'
 import mongoose from 'mongoose'
 import { z } from 'zod'
@@ -95,6 +97,24 @@ router.post('/', restrictTo('admin', 'manager'), async (req, res) => {
     }
 
     await shipment.populate(populateFields)
+
+    // Notify employee of dispatch
+    try {
+        const emp = await Employee.findById(parsed.data.employee)
+        if (emp) {
+            const empUser = await User.findOne({ email: emp.email.toLowerCase() })
+            if (empUser) {
+                await Notification.create({
+                    user: empUser._id,
+                    title: 'Equipment Dispatched! 🚚',
+                    message: `Your ${item.name} is on the way via ${parsed.data.carrier || 'Courier'} #${parsed.data.trackingNumber || 'Tracking'}.`,
+                    type: 'shipment',
+                    targetTab: 'Shipments',
+                })
+            }
+        }
+    } catch (e) {}
+
     res.status(201).json({ shipment })
 })
 
@@ -118,6 +138,25 @@ router.patch('/:id/status', restrictTo('admin', 'manager'), async (req, res) => 
     await shipment.save()
     await syncEquipment(shipment)
     await shipment.populate(populateFields)
+
+    if (parsed.data.status === 'delivered') {
+        try {
+            const emp = await Employee.findById(shipment.employee)
+            if (emp) {
+                const empUser = await User.findOne({ email: emp.email.toLowerCase() })
+                if (empUser) {
+                    await Notification.create({
+                        user: empUser._id,
+                        title: 'Package Delivered! 📦',
+                        message: `Your ${shipment.equipment?.name || 'equipment'} has arrived and is ready to use.`,
+                        type: 'shipment',
+                        targetTab: 'Equipment',
+                    })
+                }
+            }
+        } catch (e) {}
+    }
+
     res.json({ shipment })
 })
 

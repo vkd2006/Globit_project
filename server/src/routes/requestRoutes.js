@@ -1,3 +1,5 @@
+import Notification from '../models/Notification.js'
+import User from '../models/User.js'
 import { Router } from 'express'
 import { z } from 'zod'
 import Request from '../models/Request.js'
@@ -122,6 +124,20 @@ router.post('/', async (req, res) => {
             date: dateStr,
         })
 
+        // Notify admins
+        try {
+            const admins = await User.find({ role: 'admin' })
+            for (const admin of admins) {
+                await Notification.create({
+                    user: admin._id,
+                    title: 'New Equipment Request 📋',
+                    message: `${employeeExists.name} requested ${item.item}.`,
+                    type: 'request',
+                    targetTab: 'Requests',
+                })
+            }
+        } catch (e) {}
+
         const populated = await Request.findById(item._id)
             .populate('employee', 'name email department country')
             .populate('equipment', 'name type serialNumber status country').populate('shipment', 'trackingNumber carrier status')
@@ -169,8 +185,28 @@ router.put('/:id', restrictTo('admin', 'manager'), async (req, res) => {
                 assignedTo: targetEmployeeId,
             })
 
+            // Notify approved employee
+            try {
+                const empUser = await User.findOne({ email: item.employee?.email?.toLowerCase() })
+                if (empUser) {
+                    await Notification.create({
+                        user: empUser._id,
+                        title: 'Request Approved! 🎉',
+                        message: `Your request for ${item.item} has been approved and assigned to you.`,
+                        type: 'request',
+                        targetTab: 'Requests',
+                    })
+                }
+            } catch (e) {}
+
             // AUTO-CHECKER: Find all OTHER pending requests for this same equipment and cancel them
             const assignedEmpName = item.employee?.name || 'another employee'
+            const conflicting = await Request.find({
+                _id: { $ne: item._id },
+                equipment: targetEquipmentId,
+                status: 'pending',
+            }).populate('employee', 'name email')
+
             await Request.updateMany(
                 {
                     _id: { $ne: item._id },
@@ -182,6 +218,22 @@ router.put('/:id', restrictTo('admin', 'manager'), async (req, res) => {
                     rejectionReason: `Cancelled automatically: Equipment was assigned to ${assignedEmpName}.`,
                 }
             )
+
+            // Notify each conflicting employee
+            for (const cReq of conflicting) {
+                try {
+                    const cUser = await User.findOne({ email: cReq.employee?.email?.toLowerCase() })
+                    if (cUser) {
+                        await Notification.create({
+                            user: cUser._id,
+                            title: 'Request Cancelled (Auto-Conflict) ⚠️',
+                            message: `Your request for ${cReq.item} was cancelled because it was assigned to ${assignedEmpName}.`,
+                            type: 'request',
+                            targetTab: 'Requests',
+                        })
+                    }
+                } catch (e) {}
+            }
         } else if (parsed.data.status === 'rejected' && targetEquipmentId) {
             // If rejected and currently assigned to this user, reset to available
             const currentEquip = await Equipment.findById(targetEquipmentId)

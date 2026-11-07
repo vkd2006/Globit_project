@@ -1,3 +1,5 @@
+import Notification from '../models/Notification.js'
+import User from '../models/User.js'
 import { Router } from 'express'
 import mongoose from 'mongoose'
 import { z } from 'zod'
@@ -93,6 +95,21 @@ router.post('/', async (req, res) => {
         condition: condition || 'good',
     })
     await equipmentReturn.populate(populateFields)
+
+    // Notify all admins of return request
+    try {
+        const admins = await User.find({ role: 'admin' })
+        for (const admin of admins) {
+            await Notification.create({
+                user: admin._id,
+                title: 'Device Return Scheduled 🔄',
+                message: `${item.assignedTo?.name || 'An employee'} scheduled return for ${item.name}. Pickup address: ${collectionAddress || 'Default location'}.`,
+                type: 'return',
+                targetTab: 'Returns',
+            })
+        }
+    } catch (e) {}
+
     res.status(201).json({ equipmentReturn })
 })
 
@@ -129,6 +146,25 @@ router.patch('/:id/status', restrictTo('admin', 'manager'), async (req, res) => 
 
     await equipmentReturn.save()
     await equipmentReturn.populate(populateFields)
+
+    if (parsed.data.status === 'completed') {
+        try {
+            const emp = await Employee.findById(equipmentReturn.employee)
+            if (emp) {
+                const empUser = await User.findOne({ email: emp.email.toLowerCase() })
+                if (empUser) {
+                    await Notification.create({
+                        user: empUser._id,
+                        title: 'Return Inspected & Completed ✅',
+                        message: `Your return for ${equipmentReturn.equipment?.name || 'device'} was completed (${equipmentReturn.condition}).`,
+                        type: 'return',
+                        targetTab: 'Returns',
+                    })
+                }
+            }
+        } catch (e) {}
+    }
+
     res.json({ equipmentReturn })
 })
 

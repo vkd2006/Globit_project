@@ -630,7 +630,7 @@ function EquipmentTable({ items, loading, search, role, onClearSearch, onSearchC
           </tbody>
         </table>
       </div>
-      <div className="panel-footer"><span>{items.length} items</span><button onClick={onClearSearch}>Clear search</button></div>
+      <div className="panel-footer"><span>{items.length} items</span>{search ? <button onClick={onClearSearch}>Clear search</button> : null}</div>
     </section>
   );
 }
@@ -867,15 +867,15 @@ function AddRequestModal({ employees = [], currentUser = null, onClose, onAdded 
       setError("Please select an employee.");
       return;
     }
-    if (!form.item) {
-      setError("Please select an available device or enter an item name.");
+    if (!form.equipment) {
+      setError("Please select an available device from the inventory list.");
       return;
     }
     setSaving(true);
     setError("");
     try {
       const payload = isEmployee
-        ? { equipment: form.equipment || null, item: form.item, itemType: form.itemType, reason: form.reason }
+        ? { equipment: form.equipment, item: form.item, itemType: form.itemType, reason: form.reason }
         : form;
       const { request } = await api("/requests", {
         method: "POST",
@@ -889,21 +889,23 @@ function AddRequestModal({ employees = [], currentUser = null, onClose, onAdded 
     }
   }
 
+  const selectedDevice = availableItems.find((eq) => eq._id === form.equipment);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Add equipment request" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div>
-            <h2>{isEmployee ? "Request available equipment" : "New equipment request"}</h2>
-            <p>{isEmployee ? "Select from available equipment inventory to request for your work." : "Submit an equipment request on behalf of an employee."}</p>
+            <h2>{isEmployee ? "Request equipment" : "New equipment request"}</h2>
+            <p>{isEmployee ? "Select an available in-stock device to request for your work." : "Submit an equipment request on behalf of an employee."}</p>
           </div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit}>
           {isEmployee ? (
-            <div style={{ background: "#f8f9ff", border: "1px solid #e0e7ff", borderRadius: "10px", padding: "12px 14px", display: "flex", alignItems: "center", gap: "10px", color: "#4338ca", fontSize: "13px" }}>
+            <div style={{ background: "#f8f9ff", border: "1px solid #e0e7ff", borderRadius: "10px", padding: "12px 14px", display: "flex", alignItems: "center", gap: "10px", color: "#4338ca", fontSize: "13px", marginBottom: "16px" }}>
               <Package size={18} />
-              <span>Requesting for: <strong>{currentUser.name}</strong> ({currentUser.email})</span>
+              <span>Requesting as: <strong>{currentUser.name}</strong> ({currentUser.email})</span>
             </div>
           ) : (
             <div className="form-field">
@@ -919,49 +921,73 @@ function AddRequestModal({ employees = [], currentUser = null, onClose, onAdded 
             </div>
           )}
 
-          <div className="form-field">
-            <label htmlFor="req-select-avail">Select available device from inventory</label>
-            <select
-              id="req-select-avail"
-              value={form.equipment}
-              onChange={(e) => handleSelectAvailable(e.target.value)}
-            >
-              <option value="">
-                {loadingAvailable ? "Loading available inventory..." : availableItems.length === 0 ? "No available equipment in stock" : "Choose an available device..."}
-              </option>
-              {availableItems.map((item) => (
-                <option key={item._id} value={item._id}>
-                  {item.name} ({item.type.toUpperCase()}) — SN: {item.serialNumber} {item.country ? `· ${item.country}` : ""}
-                </option>
-              ))}
-            </select>
-            {form.equipment && (
-              <span className="cell-muted" style={{ fontSize: "12px", color: "#16a34a" }}>
-                ✓ Selected equipment will be automatically assigned to you when approved by admin.
-              </span>
-            )}
-          </div>
+          {loadingAvailable ? (
+            <div style={{ padding: "28px", textAlign: "center", color: "#94a3b8", fontSize: "13px" }}>
+              Loading available inventory...
+            </div>
+          ) : availableItems.length === 0 ? (
+            <div style={{ padding: "24px 20px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "10px", textAlign: "center", color: "#991b1b", marginBottom: "18px" }}>
+              <div style={{ fontSize: "28px", marginBottom: "8px" }}>📦</div>
+              <strong style={{ display: "block", fontSize: "14px", marginBottom: "6px" }}>No Equipment Available in Stock</strong>
+              <p style={{ fontSize: "12px", margin: 0, color: "#b91c1c", lineHeight: 1.5 }}>
+                There is currently no hardware available in stock to request. Please ask your IT Administrator to add equipment inventory before submitting a request.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="form-field">
+                <label htmlFor="req-select-avail">Select available device from inventory</label>
+                <select
+                  id="req-select-avail"
+                  value={form.equipment}
+                  onChange={(e) => handleSelectAvailable(e.target.value)}
+                  required
+                >
+                  <option value="">Choose an available device in stock...</option>
+                  {availableItems.map((item) => (
+                    <option key={item._id} value={item._id}>
+                      {item.name} ({item.type.toUpperCase()}) — SN: {item.serialNumber} {item.country ? `· ${item.country}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div className="form-field">
-            <label htmlFor="req-item">Equipment / Item name</label>
-            <input id="req-item" value={form.item} onChange={(e) => update("item", e.target.value)} placeholder="e.g. MacBook Pro 16 or Dell 27 4K Monitor" required />
-          </div>
-          <div className="form-field">
-            <label htmlFor="req-type">Item category</label>
-            <select id="req-type" value={form.itemType} onChange={(e) => update("itemType", e.target.value)}>
-              {equipmentTypes.map((type) => (
-                <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-field">
-            <label htmlFor="req-reason">Reason / Justification (optional)</label>
-            <textarea id="req-reason" value={form.reason} onChange={(e) => update("reason", e.target.value)} placeholder="Why is this equipment needed?" />
-          </div>
+              {selectedDevice && (
+                <div style={{ padding: "12px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", fontSize: "12px", color: "#166534", marginBottom: "14px" }}>
+                  <strong>Selected:</strong> {selectedDevice.name} ({selectedDevice.type.toUpperCase()})
+                  <span style={{ display: "block", fontSize: "11px", color: "#15803d", marginTop: "2px" }}>
+                    Serial: {selectedDevice.serialNumber} · Location: {selectedDevice.country || "Global"}
+                  </span>
+                  <span style={{ display: "block", fontSize: "11px", color: "#16a34a", marginTop: "3px" }}>
+                    ✓ This device will be automatically assigned to you upon IT Admin approval.
+                  </span>
+                </div>
+              )}
+
+              <div className="form-field">
+                <label htmlFor="req-reason">Business reason / Notes</label>
+                <textarea
+                  id="req-reason"
+                  value={form.reason}
+                  onChange={(e) => update("reason", e.target.value)}
+                  placeholder="e.g. Primary engineering machine for development sprint or replacement"
+                  rows={2}
+                  required
+                />
+              </div>
+            </>
+          )}
+
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="modal-actions">
             <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
-            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Submitting..." : "Submit request"}</button>
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={saving || loadingAvailable || availableItems.length === 0 || !form.equipment}
+            >
+              {saving ? "Submitting..." : availableItems.length === 0 ? "No Stock Available" : "Submit Request"}
+            </button>
           </div>
         </form>
       </div>
@@ -1143,7 +1169,7 @@ function RequestsTable({ requests, loading, search, role, onClearSearch, onSearc
       </div>
       <div className="panel-footer">
         <span>{requests.length} requests</span>
-        <button onClick={onClearSearch}>Clear search</button>
+        {search ? <button onClick={onClearSearch}>Clear search</button> : null}
       </div>
     </section>
   );
@@ -1368,7 +1394,7 @@ function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onSea
           </tbody>
         </table>
       </div>
-      <div className="panel-footer"><span>{shipments.length} shipments</span><button onClick={onClearSearch}>Clear search</button></div>
+      <div className="panel-footer"><span>{shipments.length} shipments</span>{search ? <button onClick={onClearSearch}>Clear search</button> : null}</div>
     </section>
   );
 }
@@ -1684,7 +1710,7 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onSearchC
           </tbody>
         </table>
       </div>
-      <div className="panel-footer"><span>{returns.length} returns</span><button onClick={onClearSearch}>Clear search</button></div>
+      <div className="panel-footer"><span>{returns.length} returns</span>{search ? <button onClick={onClearSearch}>Clear search</button> : null}</div>
     </section>
   );
 }
@@ -2318,6 +2344,75 @@ function EmployeesTable({ employees, loading, search, onClearSearch, onSearchCha
   );
 }
 
+
+function EmployeeJourneyBanner({ equipment = [], requests = [], shipments = [], onOpenRequest, onOpenReturn, onGoRequests, onGoShipments }) {
+  const pendingReq = requests.find((r) => r.status === "pending");
+  const inTransitShip = shipments.find((s) => s.status === "in_transit" || s.status === "processing");
+  const hasAssigned = equipment.length > 0;
+
+  if (equipment.length === 0 && requests.length === 0) {
+    return (
+      <section className="journey-banner">
+        <div className="journey-icon"><Laptop size={24} /></div>
+        <div className="journey-text">
+          <h3>Step 1: Request Your Work Equipment</h3>
+          <p>Welcome to Globit! You do not have any work equipment assigned yet. Browse in-stock available devices and submit your request.</p>
+        </div>
+        <button className="primary-button" onClick={onOpenRequest}>
+          Request Available Device <ArrowRight size={15} />
+        </button>
+      </section>
+    );
+  }
+
+  if (inTransitShip) {
+    return (
+      <section className="journey-banner journey-shipping">
+        <div className="journey-icon"><Truck size={24} /></div>
+        <div className="journey-text">
+          <h3>Your Hardware Is On The Road!</h3>
+          <p>Package dispatched via {inTransitShip.carrier || "Courier"} #{inTransitShip.trackingNumber || "Track"}. Milestone status: {inTransitShip.status}.</p>
+        </div>
+        <button className="primary-button" onClick={onGoShipments}>
+          Track Inbound Package <ArrowRight size={15} />
+        </button>
+      </section>
+    );
+  }
+
+  if (pendingReq) {
+    return (
+      <section className="journey-banner journey-pending">
+        <div className="journey-icon"><Clock size={24} /></div>
+        <div className="journey-text">
+          <h3>Request Under IT Review</h3>
+          <p>Your request for "{pendingReq.item}" is currently in the IT review queue. You will receive an immediate notification once approved.</p>
+        </div>
+        <button className="secondary-button" onClick={onGoRequests}>
+          View Request Status <ArrowRight size={15} />
+        </button>
+      </section>
+    );
+  }
+
+  if (hasAssigned) {
+    return (
+      <section className="journey-banner journey-active">
+        <div className="journey-icon"><CheckCircle2 size={24} /></div>
+        <div className="journey-text">
+          <h3>Active Hardware · {equipment[0].name} (SN: {equipment[0].serialNumber})</h3>
+          <p>Your equipment is deployed and active. If you are changing roles, upgrading, or returning hardware, you can schedule recovery anytime.</p>
+        </div>
+        <button className="secondary-button" onClick={() => onOpenReturn(equipment[0])}>
+          Return / Refresh Device <RotateCcw size={15} />
+        </button>
+      </section>
+    );
+  }
+
+  return null;
+}
+
 function Dashboard({ user, onSignOut }) {
   const [activePage, setActivePage] = useState("Dashboard");
   const [search, setSearch] = useState("");
@@ -2383,7 +2478,37 @@ function Dashboard({ user, onSignOut }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+    const [backendNotifications, setBackendNotifications] = useState([]);
+
+  // Fetch real-time backend notifications
+  const loadNotifications = () => {
+    api("/notifications")
+      .then(({ notifications: list }) => setBackendNotifications(list || []))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
   const notifications = useMemo(() => {
+    // If backend notifications exist, map them
+    if (backendNotifications && backendNotifications.length > 0) {
+      return backendNotifications.map((n) => ({
+        id: n._id,
+        title: n.title,
+        message: n.message,
+        time: new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        targetTab: n.targetTab || "Requests",
+        icon: n.type === "shipment" ? Truck : n.type === "return" ? RotateCcw : ClipboardList,
+        color: n.type === "shipment" ? "#6554d9" : n.type === "return" ? "#0ea5e9" : "#f59e0b",
+        read: n.read,
+      }));
+    }
+
+    // Fallback: operational alerts computed from live state
     const list = [];
     if (user.role === "admin" || user.role === "manager") {
       requests.filter((r) => r.status === "pending").slice(0, 5).forEach((r) => {
@@ -2395,28 +2520,19 @@ function Dashboard({ user, onSignOut }) {
           targetTab: "Requests",
           icon: ClipboardList,
           color: "#f59e0b",
+          read: false,
         });
       });
       shipments.filter((s) => s.status === "processing" || s.status === "in_transit").slice(0, 3).forEach((s) => {
         list.push({
           id: `ship-${s._id}`,
           title: s.status === "in_transit" ? "Shipment in transit" : "Shipment processing",
-          message: `${s.equipment?.name || "Equipment"} sent to ${s.employee?.name || "employee"} (${s.carrier || "Carrier"} #${s.trackingNumber || "—"})`,
+          message: `${s.equipment?.name || "Equipment"} sent to ${s.employee?.name || "employee"}`,
           time: s.destinationCountry || "In transit",
           targetTab: "Shipments",
           icon: Truck,
           color: "#6554d9",
-        });
-      });
-      returnsList.filter((ret) => ret.status === "requested" || ret.status === "received").slice(0, 3).forEach((ret) => {
-        list.push({
-          id: `ret-${ret._id}`,
-          title: ret.status === "requested" ? "Device return scheduled" : "Return received for inspection",
-          message: `${ret.employee?.name || "Employee"} returning ${ret.equipment?.name || "device"}${ret.collectionAddress ? ` · Pickup: ${ret.collectionAddress}` : ""}`,
-          time: ret.status === "requested" ? "Pickup pending" : "Needs inspection",
-          targetTab: "Returns",
-          icon: RotateCcw,
-          color: "#0ea5e9",
+          read: false,
         });
       });
     } else {
@@ -2424,11 +2540,12 @@ function Dashboard({ user, onSignOut }) {
         list.push({
           id: `req-app-${r._id}`,
           title: "Request approved & assigned!",
-          message: `Your request for ${r.item} was approved and assigned to you.`,
+          message: `Your request for ${r.item} was approved.`,
           time: "Approved",
           targetTab: "Requests",
           icon: CheckCircle2,
           color: "#16a34a",
+          read: false,
         });
       });
       requests.filter((r) => r.status === "rejected").slice(0, 3).forEach((r) => {
@@ -2440,35 +2557,14 @@ function Dashboard({ user, onSignOut }) {
           targetTab: "Requests",
           icon: X,
           color: "#ef4444",
-        });
-      });
-      shipments.filter((s) => s.status === "in_transit" || s.status === "processing").slice(0, 3).forEach((s) => {
-        list.push({
-          id: `ship-emp-${s._id}`,
-          title: "Device shipment on the way",
-          message: `${s.equipment?.name || "Equipment"} is coming to you via ${s.carrier || "courier"} #${s.trackingNumber || ""}`,
-          time: s.status,
-          targetTab: "Shipments",
-          icon: Truck,
-          color: "#6554d9",
-        });
-      });
-      returnsList.slice(0, 2).forEach((ret) => {
-        list.push({
-          id: `ret-emp-${ret._id}`,
-          title: ret.status === "completed" ? "Return completed & restocked" : "Return scheduled",
-          message: `${ret.equipment?.name || "Device"} return is ${ret.status}`,
-          time: ret.status,
-          targetTab: "Returns",
-          icon: RotateCcw,
-          color: ret.status === "completed" ? "#16a34a" : "#0ea5e9",
+          read: false,
         });
       });
     }
     return list;
-  }, [user.role, requests, shipments, returnsList]);
+  }, [backendNotifications, user.role, requests, shipments]);
 
-  const unreadCount = notifications.filter((n) => !readNotifications.has(n.id)).length;
+  const unreadCount = notifications.filter((n) => !n.read && !readNotifications.has(n.id)).length;
 
   const visibleNavigation = user.role === "employee"
     ? [
@@ -2949,7 +3045,10 @@ function Dashboard({ user, onSignOut }) {
                     {notifications.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => setReadNotifications(new Set(notifications.map((n) => n.id)))}
+                        onClick={async () => {
+                          setReadNotifications(new Set(notifications.map((n) => n.id)));
+                          api("/notifications/read-all", { method: "PATCH" }).catch(() => {});
+                        }}
                       >
                         Mark all read
                       </button>
@@ -2973,6 +3072,9 @@ function Dashboard({ user, onSignOut }) {
                               setActivePage(n.targetTab);
                               setReadNotifications((prev) => new Set([...prev, n.id]));
                               setShowNotifications(false);
+                              if (!n.id.startsWith("req-") && !n.id.startsWith("ship-")) {
+                                api(`/notifications/${n.id}/read`, { method: "PATCH" }).catch(() => {});
+                              }
                             }}
                           >
                             <div className="notification-icon-wrap" style={{ background: `${n.color}15`, color: n.color }}>
@@ -2996,6 +3098,18 @@ function Dashboard({ user, onSignOut }) {
         </header>
 
         <div className="page-content">
+          {user.role === "employee" && (
+            <EmployeeJourneyBanner
+              equipment={equipment}
+              requests={requests}
+              shipments={shipments}
+              onOpenRequest={() => setShowAddRequest(true)}
+              onOpenReturn={(item) => { setReturnEquipment(item); setShowAddReturn(true); }}
+              onGoRequests={() => setActivePage("Requests")}
+              onGoShipments={() => setActivePage("Shipments")}
+            />
+          )}
+
           <section className="welcome-row">
             <div>
               <div className="eyebrow"><span className="live-dot" /> {user.role === "employee" ? "EMPLOYEE SELF-SERVICE PORTAL" : "GLOBAL EQUIPMENT OPERATIONS"}</div>
@@ -3177,7 +3291,7 @@ function Dashboard({ user, onSignOut }) {
                     </tbody>
                   </table>
                 </div>
-                <div className="panel-footer"><span>{visibleRequests.length} requests</span><button onClick={() => setSearch("")}>Clear search</button></div>
+                <div className="panel-footer"><span>{visibleRequests.length} requests</span></div>
               </article>
               <article className="panel shipment-panel">
                 <div className="panel-heading">
