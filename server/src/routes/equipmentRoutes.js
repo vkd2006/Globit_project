@@ -22,19 +22,38 @@ const equipmentUpdateSchema = equipmentSchema.partial()
 router.get('/', async (req, res) => {
     try {
         let query = {}
-        // If employee role, only show equipment assigned to this specific employee!
-        if (req.user.role === 'employee') {
+        // If explicitly requesting available inventory (for requesting a device)
+        if (req.query.status === 'available') {
+            query.status = 'available'
+        } else if (req.user.role === 'employee') {
+            // For employee default view, only show equipment assigned to them
             const employee = await Employee.findOne({ email: req.user.email.toLowerCase() })
             if (!employee) {
                 return res.json({ items: [] })
             }
-            query = { assignedTo: employee._id }
+            query.assignedTo = employee._id
+        } else {
+            if (req.query.status) {
+                query.status = req.query.status
+            }
         }
 
         const items = await Equipment.find(query)
             .populate('assignedTo', 'name email department country')
             .sort({ createdAt: -1 })
         res.json({ items })
+    } catch (err) {
+        res.status(500).json({ message: err.message || 'Failed to fetch equipment' })
+    }
+})
+
+router.get('/:id', async (req, res) => {
+    try {
+        const item = await Equipment.findById(req.params.id).populate('assignedTo', 'name email department country')
+        if (!item) {
+            return res.status(404).json({ message: 'Equipment not found' })
+        }
+        res.json({ item })
     } catch (err) {
         res.status(500).json({ message: err.message || 'Failed to fetch equipment' })
     }
@@ -85,7 +104,6 @@ router.put('/:id', restrictTo('admin', 'manager'), async (req, res) => {
                 data.status = 'assigned'
             } else {
                 data.assignedTo = null
-                // If unassigned and no explicit status provided, check or reset to available
                 if (!data.status || data.status === 'assigned') {
                     data.status = 'available'
                 }

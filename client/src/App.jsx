@@ -654,16 +654,50 @@ function AddRequestModal({ employees = [], currentUser = null, onClose, onAdded 
   const isEmployee = currentUser?.role === "employee";
   const [form, setForm] = useState({
     employee: isEmployee ? "" : (employees[0]?._id || ""),
+    equipment: "",
     item: "",
     itemType: "laptop",
     reason: "",
     status: "pending",
   });
+  const [availableItems, setAvailableItems] = useState([]);
+  const [loadingAvailable, setLoadingAvailable] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    let ignore = false;
+    api("/equipment?status=available")
+      .then(({ items }) => {
+        if (!ignore) {
+          setAvailableItems(items || []);
+          setLoadingAvailable(false);
+        }
+      })
+      .catch(() => {
+        if (!ignore) setLoadingAvailable(false);
+      });
+    return () => { ignore = true; };
+  }, []);
+
   function update(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function handleSelectAvailable(equipmentId) {
+    if (!equipmentId) {
+      setForm((curr) => ({ ...curr, equipment: "", item: "", itemType: "laptop" }));
+      return;
+    }
+    const found = availableItems.find((eq) => eq._id === equipmentId);
+    if (found) {
+      setForm((curr) => ({
+        ...curr,
+        equipment: found._id,
+        item: found.name,
+        itemType: found.type,
+      }));
+    }
   }
 
   async function handleSubmit(event) {
@@ -672,11 +706,15 @@ function AddRequestModal({ employees = [], currentUser = null, onClose, onAdded 
       setError("Please select an employee.");
       return;
     }
+    if (!form.item) {
+      setError("Please select an available device or enter an item name.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
       const payload = isEmployee
-        ? { item: form.item, itemType: form.itemType, reason: form.reason }
+        ? { equipment: form.equipment || null, item: form.item, itemType: form.itemType, reason: form.reason }
         : form;
       const { request } = await api("/requests", {
         method: "POST",
@@ -695,8 +733,8 @@ function AddRequestModal({ employees = [], currentUser = null, onClose, onAdded 
       <div className="modal" role="dialog" aria-modal="true" aria-label="Add equipment request" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div>
-            <h2>{isEmployee ? "Request device" : "New equipment request"}</h2>
-            <p>{isEmployee ? "Request equipment or peripherals for your work." : "Submit an equipment request on behalf of an employee."}</p>
+            <h2>{isEmployee ? "Request available equipment" : "New equipment request"}</h2>
+            <p>{isEmployee ? "Select from available equipment inventory to request for your work." : "Submit an equipment request on behalf of an employee."}</p>
           </div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
@@ -719,6 +757,30 @@ function AddRequestModal({ employees = [], currentUser = null, onClose, onAdded 
               </select>
             </div>
           )}
+
+          <div className="form-field">
+            <label htmlFor="req-select-avail">Select available device from inventory</label>
+            <select
+              id="req-select-avail"
+              value={form.equipment}
+              onChange={(e) => handleSelectAvailable(e.target.value)}
+            >
+              <option value="">
+                {loadingAvailable ? "Loading available inventory..." : availableItems.length === 0 ? "No available equipment in stock" : "Choose an available device..."}
+              </option>
+              {availableItems.map((item) => (
+                <option key={item._id} value={item._id}>
+                  {item.name} ({item.type.toUpperCase()}) — SN: {item.serialNumber} {item.country ? `· ${item.country}` : ""}
+                </option>
+              ))}
+            </select>
+            {form.equipment && (
+              <span className="cell-muted" style={{ fontSize: "12px", color: "#16a34a" }}>
+                ✓ Selected equipment will be automatically assigned to you when approved by admin.
+              </span>
+            )}
+          </div>
+
           <div className="form-field">
             <label htmlFor="req-item">Equipment / Item name</label>
             <input id="req-item" value={form.item} onChange={(e) => update("item", e.target.value)} placeholder="e.g. MacBook Pro 16 or Dell 27 4K Monitor" required />
@@ -753,7 +815,7 @@ function RequestsTable({ requests, loading, search, role, onClearSearch, onAdd, 
       <div className="panel-heading">
         <div>
           <h2>{isEmployee ? "My requests" : "All requests"}</h2>
-          <p>{isEmployee ? "Equipment requests submitted by you and their approval status" : "Equipment requests submitted by team members"}</p>
+          <p>{isEmployee ? "Equipment requests submitted by you and their live approval status" : "Equipment requests submitted by team members"}</p>
         </div>
         <button className="text-button" onClick={onAdd}>{isEmployee ? "Request device" : "Add request"} <Plus size={15} /></button>
       </div>
@@ -774,7 +836,7 @@ function RequestsTable({ requests, loading, search, role, onClearSearch, onAdd, 
             {loading ? (
               <tr><td colSpan={isEmployee ? 6 : 7} className="empty-state">Loading requests...</td></tr>
             ) : requests.length === 0 ? (
-              <tr><td colSpan={isEmployee ? 6 : 7} className="empty-state">{search ? "No matching requests found." : isEmployee ? "You haven't requested any devices yet. Click 'Request device' above." : "No requests yet. Submit your first request with the button above."}</td></tr>
+              <tr><td colSpan={isEmployee ? 6 : 7} className="empty-state">{search ? "No matching requests found." : isEmployee ? "You haven't requested any devices yet. Click 'Request device' above to choose from available inventory." : "No requests yet. Submit your first request with the button above."}</td></tr>
             ) : (
               requests.map((req) => (
                 <tr key={req._id}>
@@ -791,7 +853,14 @@ function RequestsTable({ requests, loading, search, role, onClearSearch, onAdd, 
                       </div>
                     </td>
                   )}
-                  <td className="cell-strong">{req.item}</td>
+                  <td>
+                    <span className="cell-strong">{req.item}</span>
+                    {req.equipment?.serialNumber && (
+                      <span className="cell-muted" style={{ fontSize: "11px", display: "block", fontFamily: "monospace" }}>
+                        SN: {req.equipment.serialNumber}
+                      </span>
+                    )}
+                  </td>
                   <td className="cell-capitalize">{req.itemType || "laptop"}</td>
                   <td>{req.date || "—"}</td>
                   <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.reason}>
@@ -808,7 +877,7 @@ function RequestsTable({ requests, loading, search, role, onClearSearch, onAdd, 
                         <>
                           <button
                             className="action-btn action-btn-success"
-                            title="Approve request"
+                            title="Approve & Assign equipment to employee"
                             aria-label="Approve request"
                             onClick={() => onUpdateStatus(req._id, "approved")}
                           >
@@ -836,7 +905,7 @@ function RequestsTable({ requests, loading, search, role, onClearSearch, onAdd, 
                       )}
                       {isEmployee && (
                         <span className="cell-muted" style={{ fontSize: "12px" }}>
-                          {req.status === "pending" ? "In review" : req.status === "approved" ? "Approved" : req.status === "rejected" ? "Declined" : "Completed"}
+                          {req.status === "pending" ? "Awaiting review" : req.status === "approved" ? "Approved & Assigned" : req.status === "rejected" ? "Declined" : "Fulfilled"}
                         </span>
                       )}
                     </div>
@@ -960,15 +1029,18 @@ function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd
   return (
     <section className="panel">
       <div className="panel-heading">
-        <div><h2>All shipments</h2><p>Equipment on its way to your team, worldwide</p></div>
-        <button className="text-button" onClick={onAdd}>Add shipment <Plus size={15} /></button>
+        <div>
+          <h2>{canManage ? "All shipments" : "My shipments"}</h2>
+          <p>{canManage ? "Equipment on its way to your team, worldwide" : "Equipment packages currently in transit to your location"}</p>
+        </div>
+        {canManage && <button className="text-button" onClick={onAdd}>Add shipment <Plus size={15} /></button>}
       </div>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
               <th>EQUIPMENT</th>
-              <th>EMPLOYEE</th>
+              {canManage && <th>EMPLOYEE</th>}
               <th>DESTINATION</th>
               <th>CARRIER</th>
               <th>STATUS</th>
@@ -977,9 +1049,9 @@ function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="6" className="empty-state">Loading shipments...</td></tr>
+              <tr><td colSpan={canManage ? 6 : 5} className="empty-state">Loading shipments...</td></tr>
             ) : shipments.length === 0 ? (
-              <tr><td colSpan="6" className="empty-state">{search ? "No matching shipments found." : "No shipments yet. Create your first shipment with the button above."}</td></tr>
+              <tr><td colSpan={canManage ? 6 : 5} className="empty-state">{search ? "No matching shipments found." : canManage ? "No shipments yet. Create your first shipment with the button above." : "No shipments currently in transit to you."}</td></tr>
             ) : (
               shipments.map((shipment) => {
                 const open = shipment.status === "processing" || shipment.status === "in_transit";
@@ -987,16 +1059,18 @@ function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd
                   <tr key={shipment._id}>
                     <td>
                       <div className="employee-info-cell">
-                        <strong>{shipment.equipment?.name || "Removed equipment"}</strong>
+                        <strong>{shipment.equipment?.name || "Equipment"}</strong>
                         <span>{shipment.equipment?.serialNumber || "—"}</span>
                       </div>
                     </td>
-                    <td>
-                      <div className="assignee-badge">
-                        <span className="assignee-avatar">{shipment.employee?.name?.[0]?.toUpperCase() || "E"}</span>
-                        <span>{shipment.employee?.name || "Removed employee"}</span>
-                      </div>
-                    </td>
+                    {canManage && (
+                      <td>
+                        <div className="assignee-badge">
+                          <span className="assignee-avatar">{shipment.employee?.name?.[0]?.toUpperCase() || "E"}</span>
+                          <span>{shipment.employee?.name || "Removed employee"}</span>
+                        </div>
+                      </td>
+                    )}
                     <td>{shipment.destinationCountry || "—"}</td>
                     <td>
                       <div className="employee-info-cell">
@@ -1011,7 +1085,7 @@ function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd
                     </td>
                     <td>
                       <div className="table-actions">
-                        <button className="action-btn" title="View tracking" aria-label="View tracking" onClick={() => onTrack(shipment)}>
+                        <button className="action-btn" title="View tracking timeline" aria-label="View tracking" onClick={() => onTrack(shipment)}>
                           <MapPin size={14} />
                         </button>
                         {canManage && shipment.status === "processing" && (
@@ -1030,7 +1104,7 @@ function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd
                           </button>
                         )}
                         {canDelete && !open && (
-                          <button className="action-btn action-btn-danger" title="Delete shipment" aria-label="Delete shipment" onClick={() => onDelete(shipment)}>
+                          <button className="action-btn action-btn-danger" title="Delete shipment record" aria-label="Delete shipment" onClick={() => onDelete(shipment)}>
                             <Trash2 size={14} />
                           </button>
                         )}
@@ -1043,10 +1117,7 @@ function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd
           </tbody>
         </table>
       </div>
-      <div className="panel-footer">
-        <span>{shipments.length} shipments</span>
-        <button onClick={onClearSearch}>Clear search</button>
-      </div>
+      <div className="panel-footer"><span>{shipments.length} shipments</span><button onClick={onClearSearch}>Clear search</button></div>
     </section>
   );
 }
@@ -1215,15 +1286,18 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
   return (
     <section className="panel">
       <div className="panel-heading">
-        <div><h2>All returns</h2><p>Devices coming back from your team</p></div>
-        <button className="text-button" onClick={onAdd}>Add return <Plus size={15} /></button>
+        <div>
+          <h2>{canManage ? "All returns" : "My returns"}</h2>
+          <p>{canManage ? "Devices coming back from your team" : "Equipment returned or scheduled for recovery"}</p>
+        </div>
+        {canManage && <button className="text-button" onClick={onAdd}>Add return <Plus size={15} /></button>}
       </div>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
               <th>EQUIPMENT</th>
-              <th>EMPLOYEE</th>
+              {canManage && <th>EMPLOYEE</th>}
               <th>REASON</th>
               <th>CONDITION</th>
               <th>STATUS</th>
@@ -1232,9 +1306,9 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="6" className="empty-state">Loading returns...</td></tr>
+              <tr><td colSpan={canManage ? 6 : 5} className="empty-state">Loading returns...</td></tr>
             ) : returns.length === 0 ? (
-              <tr><td colSpan="6" className="empty-state">{search ? "No matching returns found." : "No returns yet. Record your first return with the button above."}</td></tr>
+              <tr><td colSpan={canManage ? 6 : 5} className="empty-state">{search ? "No matching returns found." : canManage ? "No returns yet. Record your first return with the button above." : "No return records."}</td></tr>
             ) : (
               returns.map((item) => {
                 const open = item.status === "requested" || item.status === "received";
@@ -1246,12 +1320,14 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
                         <span>{item.equipment?.serialNumber || "—"}</span>
                       </div>
                     </td>
-                    <td>
-                      <div className="assignee-badge">
-                        <span className="assignee-avatar">{item.employee?.name?.[0]?.toUpperCase() || "E"}</span>
-                        <span>{item.employee?.name || "Removed employee"}</span>
-                      </div>
-                    </td>
+                    {canManage && (
+                      <td>
+                        <div className="assignee-badge">
+                          <span className="assignee-avatar">{item.employee?.name?.[0]?.toUpperCase() || "E"}</span>
+                          <span>{item.employee?.name || "Removed employee"}</span>
+                        </div>
+                      </td>
+                    )}
                     <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.reason}>
                       {item.reason || "—"}
                     </td>
@@ -1283,6 +1359,11 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
                             <Trash2 size={14} />
                           </button>
                         )}
+                        {!canManage && (
+                          <span className="cell-muted" style={{ fontSize: "12px" }}>
+                            {item.status === "completed" ? "Completed" : item.status === "received" ? "Under inspection" : "Pending pickup"}
+                          </span>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1292,10 +1373,7 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
           </tbody>
         </table>
       </div>
-      <div className="panel-footer">
-        <span>{returns.length} returns</span>
-        <button onClick={onClearSearch}>Clear search</button>
-      </div>
+      <div className="panel-footer"><span>{returns.length} returns</span><button onClick={onClearSearch}>Clear search</button></div>
     </section>
   );
 }
@@ -1774,10 +1852,8 @@ function EmployeeDetailsModal({ employee, onClose, onUpdateRequestStatus }) {
                                   title="Approve"
                                   onClick={async () => {
                                     await onUpdateRequestStatus(r._id, "approved");
-                                    setDetails((d) => ({
-                                      ...d,
-                                      requests: d.requests.map((item) => (item._id === r._id ? { ...item, status: "approved" } : item)),
-                                    }));
+                                    const updatedData = await api(`/employees/${employee._id}`);
+                                    setDetails(updatedData);
                                   }}
                                 >
                                   <Check size={13} />
@@ -2096,6 +2172,8 @@ function Dashboard({ user, onSignOut }) {
         body: JSON.stringify({ status: newStatus }),
       });
       setRequests((list) => list.map((r) => (r._id === id ? updated : r)));
+      refreshEquipment();
+      api("/employees").then(({ employees: emps }) => setEmployees(emps || [])).catch(() => {});
     } catch (err) {
       alert(err.message || "Failed to update request status");
     }

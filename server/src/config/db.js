@@ -22,7 +22,7 @@ export async function connectDB() {
         }
     }
 
-    // Auto-seed admin and sample employee if empty so testing works immediately!
+    // Auto-seed admin and sample employee with available inventory if empty
     try {
         const adminCount = await User.countDocuments({ role: 'admin' })
         if (adminCount === 0) {
@@ -69,6 +69,23 @@ export async function connectDB() {
                 })
             }
             console.log('Default Employee created: alex@globit.com / Employee@123')
+        }
+
+        // Seed available inventory so employees can select from real equipment!
+        const sampleInventory = [
+            { name: 'MacBook Pro 16" M3 Max', type: 'laptop', serialNumber: 'MBP-16-901', status: 'available', country: 'United States', notes: 'High-performance M3 Max, 36GB RAM' },
+            { name: 'Dell UltraSharp 27" 4K Monitor', type: 'monitor', serialNumber: 'DEL-27-402', status: 'available', country: 'United States', notes: 'IPS USB-C Hub Monitor' },
+            { name: 'Lenovo ThinkPad X1 Carbon Gen 12', type: 'laptop', serialNumber: 'TP-X1-884', status: 'available', country: 'United States', notes: 'Intel Core Ultra 7, 32GB RAM' },
+            { name: 'Logitech MX Master 3S Mouse', type: 'mouse', serialNumber: 'LOG-MX-309', status: 'available', country: 'United States', notes: 'Wireless performance mouse' },
+            { name: 'Apple Magic Keyboard with Touch ID', type: 'keyboard', serialNumber: 'APL-KB-112', status: 'available', country: 'United States', notes: 'Wireless keyboard' },
+            { name: 'Bose 700 Noise Cancelling Headset', type: 'headset', serialNumber: 'BSE-NC-701', status: 'available', country: 'United States', notes: 'Bluetooth headset' },
+        ]
+
+        for (const item of sampleInventory) {
+            const exists = await Equipment.findOne({ serialNumber: item.serialNumber })
+            if (!exists) {
+                await Equipment.create(item)
+            }
         }
     } catch (seedErr) {
         console.warn('Seed notice:', seedErr.message)

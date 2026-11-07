@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import Request from '../models/Request.js'
 import Employee from '../models/Employee.js'
+import Equipment from '../models/Equipment.js'
 import { protect, restrictTo } from '../middleware/auth.js'
 
 const router = Router()
@@ -9,6 +10,7 @@ router.use(protect)
 
 const requestCreateSchema = z.object({
     employee: z.string().trim().min(1, 'Employee is required'),
+    equipment: z.string().trim().nullable().optional(),
     item: z.string().trim().min(1, 'Equipment item is required'),
     itemType: z.enum(['laptop', 'monitor', 'phone', 'keyboard', 'mouse', 'headset', 'other']).optional().default('laptop'),
     reason: z.string().trim().optional().default(''),
@@ -16,6 +18,7 @@ const requestCreateSchema = z.object({
 })
 
 const requestUpdateSchema = z.object({
+    equipment: z.string().trim().nullable().optional(),
     item: z.string().trim().min(1).optional(),
     itemType: z.enum(['laptop', 'monitor', 'phone', 'keyboard', 'mouse', 'headset', 'other']).optional(),
     reason: z.string().trim().optional(),
@@ -43,9 +46,9 @@ router.get('/', async (req, res) => {
 
         const items = await Request.find(query)
             .populate('employee', 'name email department country')
+            .populate('equipment', 'name type serialNumber status country')
             .sort({ createdAt: -1 })
 
-        // If search was passed, filter in-memory or by regex
         const filtered = search
             ? items.filter((r) => {
                   const s = search.toLowerCase()
@@ -105,10 +108,9 @@ router.post('/', async (req, res) => {
             date: dateStr,
         })
 
-        const populated = await Request.findById(item._id).populate(
-            'employee',
-            'name email department country'
-        )
+        const populated = await Request.findById(item._id)
+            .populate('employee', 'name email department country')
+            .populate('equipment', 'name type serialNumber status country')
 
         res.status(201).json({ request: populated })
     } catch (err) {
@@ -124,13 +126,31 @@ router.put('/:id', restrictTo('admin', 'manager'), async (req, res) => {
     }
 
     try {
+        const existing = await Request.findById(req.params.id)
+        if (!existing) {
+            return res.status(404).json({ message: 'Request not found' })
+        }
+
         const item = await Request.findByIdAndUpdate(req.params.id, parsed.data, {
             new: true,
             runValidators: true,
-        }).populate('employee', 'name email department country')
+        })
+            .populate('employee', 'name email department country')
+            .populate('equipment', 'name type serialNumber status country')
 
-        if (!item) {
-            return res.status(404).json({ message: 'Request not found' })
+        // When approved or fulfilled, automatically assign the linked equipment to this employee!
+        const targetEquipmentId = parsed.data.equipment || item.equipment?._id || item.equipment
+        if ((parsed.data.status === 'approved' || parsed.data.status === 'fulfilled') && targetEquipmentId) {
+            await Equipment.findByIdAndUpdate(targetEquipmentId, {
+                status: 'assigned',
+                assignedTo: item.employee?._id || item.employee,
+            })
+        } else if (parsed.data.status === 'rejected' && targetEquipmentId) {
+            // If rejected, ensure equipment remains or returns to available
+            await Equipment.findByIdAndUpdate(targetEquipmentId, {
+                status: 'available',
+                assignedTo: null,
+            })
         }
 
         res.json({ request: item })
