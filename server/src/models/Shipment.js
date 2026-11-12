@@ -16,6 +16,7 @@ const shipmentSchema = new mongoose.Schema(
         carrier: { type: String, trim: true },
         trackingNumber: { type: String, trim: true },
         destinationCountry: { type: String, trim: true },
+        request: { type: mongoose.Schema.Types.ObjectId, ref: 'Request', default: null },
         status: {
             type: String,
             enum: ['processing', 'in_transit', 'delivered', 'cancelled'],

@@ -2,6 +2,7 @@ import { Router } from 'express'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 import User from '../models/User.js'
+import Employee from '../models/Employee.js'
 import { protect, restrictTo } from '../middleware/auth.js'
 
 const router = Router()
@@ -11,9 +12,11 @@ const roleEnum = z.enum(['admin', 'manager', 'employee'])
 
 const createSchema = z.object({
     name: z.string().trim().min(1, 'Name is required'),
-    email: z.string().trim().email('Enter a valid email'),
+    email: z.string().trim().email('Enter a valid email').toLowerCase(),
     password: z.string().min(8, 'The password must be at least 8 characters'),
-    role: roleEnum.optional(),
+    role: roleEnum.optional().default('employee'),
+    department: z.string().trim().optional().default(''),
+    country: z.string().trim().optional().default(''),
 })
 
 const updateSchema = z.object({
@@ -48,7 +51,23 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ message: parsed.error.issues[0].message })
     }
     try {
-        const user = await User.create(parsed.data)
+        const { department, country, ...userData } = parsed.data
+        const user = await User.create(userData)
+
+        // If the created user is an employee, automatically ensure they exist in Employee list!
+        if (user.role === 'employee') {
+            const existingEmp = await Employee.findOne({ email: user.email.toLowerCase() })
+            if (!existingEmp) {
+                await Employee.create({
+                    name: user.name,
+                    email: user.email.toLowerCase(),
+                    department: department || '',
+                    country: country || '',
+                    status: 'active',
+                })
+            }
+        }
+
         res.status(201).json({ user: publicUser(user) })
     } catch (err) {
         if (err.code === 11000) {
@@ -92,6 +111,15 @@ router.patch('/:id', async (req, res) => {
         new: true,
         runValidators: true,
     })
+
+    // If name changed or user deactivated, sync with Employee record
+    if (parsed.data.name || parsed.data.active !== undefined) {
+        const empUpdate = {}
+        if (parsed.data.name) empUpdate.name = parsed.data.name
+        if (parsed.data.active === false) empUpdate.status = 'inactive'
+        await Employee.findOneAndUpdate({ email: target.email }, empUpdate)
+    }
+
     res.json({ user: publicUser(user) })
 })
 

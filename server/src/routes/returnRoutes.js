@@ -1,8 +1,11 @@
+import Notification from '../models/Notification.js'
+import User from '../models/User.js'
 import { Router } from 'express'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 import EquipmentReturn from '../models/EquipmentReturn.js'
 import Equipment from '../models/Equipment.js'
+import Employee from '../models/Employee.js'
 import { protect, restrictTo } from '../middleware/auth.js'
 
 const router = Router()
@@ -14,6 +17,7 @@ const conditionEnum = z.enum(['good', 'damaged'])
 const createSchema = z.object({
     equipment: objectId,
     reason: z.string().trim().optional(),
+    collectionAddress: z.string().trim().optional().default(''),
     condition: conditionEnum.optional(),
 })
 
@@ -35,21 +39,44 @@ const populateFields = [
 ]
 
 router.get('/', async (req, res) => {
-    const returns = await EquipmentReturn.find().sort({ createdAt: -1 }).populate(populateFields)
-    res.json({ returns })
+    try {
+        let query = {}
+        // If employee role, only show returns for this employee
+        if (req.user.role === 'employee') {
+            const employee = await Employee.findOne({ email: req.user.email.toLowerCase() })
+            if (!employee) {
+                return res.json({ returns: [] })
+            }
+            query = { employee: employee._id }
+        }
+
+        const returns = await EquipmentReturn.find(query).sort({ createdAt: -1 }).populate(populateFields)
+        res.json({ returns })
+    } catch (err) {
+        res.status(500).json({ message: err.message || 'Failed to fetch returns' })
+    }
 })
 
-router.post('/', restrictTo('admin', 'manager'), async (req, res) => {
+// Employees can request returns for their own assigned equipment; admins/managers can create returns for any assigned equipment
+router.post('/', async (req, res) => {
     const parsed = createSchema.safeParse(req.body)
     if (!parsed.success) {
         return res.status(400).json({ message: parsed.error.issues[0].message })
     }
-    const { equipment, reason, condition } = parsed.data
+    const { equipment, reason, condition, collectionAddress } = parsed.data
 
     const item = await Equipment.findById(equipment)
     if (!item) return res.status(404).json({ message: 'Equipment not found' })
     if (item.status !== 'assigned' || !item.assignedTo) {
         return res.status(409).json({ message: 'Only equipment assigned to an employee can be returned' })
+    }
+
+    // If logged in as employee, make sure this equipment is actually assigned to them!
+    if (req.user.role === 'employee') {
+        const emp = await Employee.findOne({ email: req.user.email.toLowerCase() })
+        if (!emp || !item.assignedTo.equals(emp._id)) {
+            return res.status(403).json({ message: 'You can only return equipment currently assigned to you' })
+        }
     }
 
     const alreadyOpen = await EquipmentReturn.exists({
@@ -64,9 +91,25 @@ router.post('/', restrictTo('admin', 'manager'), async (req, res) => {
         equipment,
         employee: item.assignedTo,
         reason,
-        condition,
+        collectionAddress: collectionAddress || '',
+        condition: condition || 'good',
     })
     await equipmentReturn.populate(populateFields)
+
+    // Notify all admins of return request
+    try {
+        const admins = await User.find({ role: 'admin' })
+        for (const admin of admins) {
+            await Notification.create({
+                user: admin._id,
+                title: 'Device Return Scheduled 🔄',
+                message: `${item.assignedTo?.name || 'An employee'} scheduled return for ${item.name}. Pickup address: ${collectionAddress || 'Default location'}.`,
+                type: 'return',
+                targetTab: 'Returns',
+            })
+        }
+    } catch (e) {}
+
     res.status(201).json({ equipmentReturn })
 })
 
@@ -103,6 +146,25 @@ router.patch('/:id/status', restrictTo('admin', 'manager'), async (req, res) => 
 
     await equipmentReturn.save()
     await equipmentReturn.populate(populateFields)
+
+    if (parsed.data.status === 'completed') {
+        try {
+            const emp = await Employee.findById(equipmentReturn.employee)
+            if (emp) {
+                const empUser = await User.findOne({ email: emp.email.toLowerCase() })
+                if (empUser) {
+                    await Notification.create({
+                        user: empUser._id,
+                        title: 'Return Inspected & Completed ✅',
+                        message: `Your return for ${equipmentReturn.equipment?.name || 'device'} was completed (${equipmentReturn.condition}).`,
+                        type: 'return',
+                        targetTab: 'Returns',
+                    })
+                }
+            }
+        } catch (e) {}
+    }
+
     res.json({ equipmentReturn })
 })
 

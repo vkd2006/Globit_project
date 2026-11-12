@@ -1,8 +1,11 @@
+import Notification from '../models/Notification.js'
+import User from '../models/User.js'
 import { Router } from 'express'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 import Shipment from '../models/Shipment.js'
 import Equipment from '../models/Equipment.js'
+import Employee from '../models/Employee.js'
 import { protect, restrictTo } from '../middleware/auth.js'
 
 const router = Router()
@@ -16,6 +19,7 @@ const createSchema = z.object({
     carrier: z.string().trim().optional(),
     trackingNumber: z.string().trim().optional(),
     destinationCountry: z.string().trim().optional(),
+    request: z.string().optional(),
 })
 
 const statusSchema = z.object({
@@ -40,8 +44,22 @@ async function syncEquipment(shipment) {
 }
 
 router.get('/', async (req, res) => {
-    const shipments = await Shipment.find().sort({ createdAt: -1 }).populate(populateFields)
-    res.json({ shipments })
+    try {
+        let query = {}
+        // If employee role, only show shipments addressed to this employee!
+        if (req.user.role === 'employee') {
+            const employee = await Employee.findOne({ email: req.user.email.toLowerCase() })
+            if (!employee) {
+                return res.json({ shipments: [] })
+            }
+            query = { employee: employee._id }
+        }
+
+        const shipments = await Shipment.find(query).sort({ createdAt: -1 }).populate(populateFields)
+        res.json({ shipments })
+    } catch (err) {
+        res.status(500).json({ message: err.message || 'Failed to fetch shipments' })
+    }
 })
 
 router.post('/', restrictTo('admin', 'manager'), async (req, res) => {
@@ -65,7 +83,38 @@ router.post('/', restrictTo('admin', 'manager'), async (req, res) => {
         timeline: [{ status: 'processing', note: 'Shipment created' }],
     })
     await syncEquipment(shipment)
+
+    // If shipment was created from an approved request, link and fulfill request!
+    if (parsed.data.request) {
+        try {
+            await mongoose.model('Request').findByIdAndUpdate(parsed.data.request, {
+                status: 'fulfilled',
+                shipment: shipment._id,
+            })
+        } catch (e) {
+            console.warn('Could not link request to shipment:', e.message)
+        }
+    }
+
     await shipment.populate(populateFields)
+
+    // Notify employee of dispatch
+    try {
+        const emp = await Employee.findById(parsed.data.employee)
+        if (emp) {
+            const empUser = await User.findOne({ email: emp.email.toLowerCase() })
+            if (empUser) {
+                await Notification.create({
+                    user: empUser._id,
+                    title: 'Equipment Dispatched! 🚚',
+                    message: `Your ${item.name} is on the way via ${parsed.data.carrier || 'Courier'} #${parsed.data.trackingNumber || 'Tracking'}.`,
+                    type: 'shipment',
+                    targetTab: 'Shipments',
+                })
+            }
+        }
+    } catch (e) {}
+
     res.status(201).json({ shipment })
 })
 
@@ -89,6 +138,25 @@ router.patch('/:id/status', restrictTo('admin', 'manager'), async (req, res) => 
     await shipment.save()
     await syncEquipment(shipment)
     await shipment.populate(populateFields)
+
+    if (parsed.data.status === 'delivered') {
+        try {
+            const emp = await Employee.findById(shipment.employee)
+            if (emp) {
+                const empUser = await User.findOne({ email: emp.email.toLowerCase() })
+                if (empUser) {
+                    await Notification.create({
+                        user: empUser._id,
+                        title: 'Package Delivered! 📦',
+                        message: `Your ${shipment.equipment?.name || 'equipment'} has arrived and is ready to use.`,
+                        type: 'shipment',
+                        targetTab: 'Equipment',
+                    })
+                }
+            }
+        } catch (e) {}
+    }
+
     res.json({ shipment })
 })
 

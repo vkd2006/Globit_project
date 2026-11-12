@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   LayoutDashboard, Laptop, Users, ClipboardList, Truck, RotateCcw,
   Search, Bell, Plus, ArrowUpRight, Package, Clock, CheckCircle2,
@@ -75,9 +75,9 @@ function LandingPage({ onSignIn, onGetStarted, onDemo }) {
       <header className="landing-nav">
         <a className="landing-brand-link" href="#top" aria-label="Globit home"><Brand /></a>
         <nav className="landing-links" aria-label="Main navigation">
-          <a href="#solutions">Solutions</a>
-          <a href="#features">Features</a>
           <a href="#how-it-works">How it works</a>
+          <a href="#features">Features</a>
+          <a href="#solutions">Solutions</a>
         </nav>
         <div className="landing-nav-actions">
           <button className="landing-signin" onClick={onSignIn}>Sign in</button>
@@ -90,45 +90,154 @@ function LandingPage({ onSignIn, onGetStarted, onDemo }) {
           <div className="hero-copy">
             <div className="hero-kicker"><Globe2 size={15} /> GLOBAL EQUIPMENT, SIMPLIFIED</div>
             <h1>Equip your global workforce, <span>anywhere.</span></h1>
-            <p className="hero-description">From procurement to delivery and recovery, manage your team's equipment across borders—all in one place.</p>
+            <p className="hero-description">
+              From hardware procurement and self-service requests to multi-country shipping, smart conflict resolution, and asset recovery—manage every device seamlessly in one place.
+            </p>
             <div className="hero-actions">
               <button className="landing-primary hero-cta" onClick={onGetStarted}>Get started <ArrowRight size={17} /></button>
               <button className="landing-secondary" onClick={onSignIn}>Sign in to your workspace</button>
               <button className="landing-secondary" onClick={async () => { try { await onDemo(); } catch (err) { alert(err.message); } }}>Try the demo</button>
             </div>
-            <div className="hero-trust"><span className="trust-icon"><ShieldCheck size={17} /></span><span>One workspace. Every location. Total visibility.</span></div>
+            <div className="hero-trust">
+              <span className="trust-icon"><ShieldCheck size={17} /></span>
+              <span>One unified workspace. Every office and remote location. Total visibility.</span>
+            </div>
           </div>
           <div className="hero-visual" aria-label="Illustration of global equipment logistics">
             <div className="visual-orbit orbit-one"></div><div className="visual-orbit orbit-two"></div>
             <div className="visual-globe"><Globe2 size={90} strokeWidth={1.15} /></div>
-            <div className="float-card float-card-top"><span className="float-icon purple"><Laptop size={19} /></span><span><strong>Equipment ready</strong><small>Device management</small></span><CircleCheck className="float-check" size={18} /></div>
-            <div className="float-card float-card-bottom"><span className="float-icon green"><Truck size={19} /></span><span><strong>Shipment in transit</strong><small><MapPin size={12} /> Berlin, Germany</small></span><span className="shipment-pulse"></span></div>
-            <div className="visual-tag"><span className="tag-dot"></span> Connected worldwide</div>
+            <div className="float-card float-card-top">
+              <span className="float-icon purple"><Laptop size={19} /></span>
+              <span><strong>Hardware Ready</strong><small>Instant stock allocation</small></span>
+              <CircleCheck className="float-check" size={18} />
+            </div>
+            <div className="float-card float-card-bottom">
+              <span className="float-icon green"><Truck size={19} /></span>
+              <span><strong>Global Delivery</strong><small><MapPin size={12} /> Berlin · DHL Express</small></span>
+              <span className="shipment-pulse"></span>
+            </div>
+            <div className="visual-tag"><span className="tag-dot"></span> Live Global Logistics Network</div>
           </div>
         </section>
 
-        <section className="landing-benefits" id="solutions">
-          <div className="benefits-intro"><span className="section-eyebrow">BUILT FOR DISTRIBUTED TEAMS</span><h2>Everything your equipment needs.<br /><span>All in one place.</span></h2><p>Keep every device, delivery, and return moving smoothly—wherever your people work.</p></div>
-          <div className="benefit-grid" id="features">
-            <article className="benefit-card"><div className="benefit-icon"><Boxes size={22} /></div><h3>Equipment management</h3><p>Keep device details and availability organised in one central workspace.</p><span className="benefit-number">01</span></article>
-            <article className="benefit-card"><div className="benefit-icon"><Truck size={22} /></div><h3>Global shipping</h3><p>Follow equipment deliveries and keep shipment information visible.</p><span className="benefit-number">02</span></article>
-            <article className="benefit-card"><div className="benefit-icon"><Users size={22} /></div><h3>Employee requests</h3><p>Bring equipment requests and team needs into one clear workflow.</p><span className="benefit-number">03</span></article>
-            <article className="benefit-card"><div className="benefit-icon"><RotateCcw size={22} /></div><h3>Easy asset recovery</h3><p>Keep returns and offboarding equipment organised from start to finish.</p><span className="benefit-number">04</span></article>
+        {/* HOW IT WORKS SECTION */}
+        <section className="landing-benefits" id="how-it-works" style={{ background: "#fafbfe" }}>
+          <div className="benefits-intro">
+            <span className="section-eyebrow">STEP-BY-STEP WORKFLOW</span>
+            <h2>How Globit Works<br /><span>From Inventory to Employee Hands</span></h2>
+            <p>A streamlined, connected lifecycle that handles hardware provisioning, requests, shipping, and returns without manual chaos.</p>
+          </div>
+          <div className="how-it-works-steps">
+            <article className="step-card">
+              <span className="step-number">1</span>
+              <h3>Catalog & Bulk Stock</h3>
+              <p>Admins register hardware with bulk quantity support and auto-indexed unique serial numbers for each physical unit.</p>
+            </article>
+            <article className="step-card">
+              <span className="step-number">2</span>
+              <h3>Self-Service Request</h3>
+              <p>Employees browse currently available in-stock devices, choose their preferred gear, and submit with their business rationale.</p>
+            </article>
+            <article className="step-card">
+              <span className="step-number">3</span>
+              <h3>Smart Auto-Conflict Resolver</h3>
+              <p>Admins approve with 1 click. Competing requests for the same device are automatically resolved and cancelled with clear explanations.</p>
+            </article>
+            <article className="step-card">
+              <span className="step-number">4</span>
+              <h3>Direct Carrier Dispatch</h3>
+              <p>Dispatch shipments directly from approved requests via DHL, FedEx, or UPS with real-time milestone tracking.</p>
+            </article>
+            <article className="step-card">
+              <span className="step-number">5</span>
+              <h3>Return & Restocking</h3>
+              <p>Employees schedule returns with designated pickup collection addresses. Inspected devices return to available inventory.</p>
+            </article>
           </div>
         </section>
 
-        <section className="landing-tracking" id="how-it-works">
-          <div className="tracking-copy"><span className="section-eyebrow">VISIBILITY WITHOUT THE CHAOS</span><h2>Know where your equipment is going.</h2><p>Keep shipment details and delivery progress close at hand, with a workspace designed for teams spread around the world.</p><button className="landing-text-link" onClick={onGetStarted}>Explore your workspace <ArrowRight size={16} /></button></div>
+        {/* CORE CAPABILITIES & FEATURES */}
+        <section className="landing-benefits" id="features">
+          <div className="benefits-intro">
+            <span className="section-eyebrow">BUILT FOR DISTRIBUTED TEAMS</span>
+            <h2>Comprehensive Capabilities<br /><span>Engineered for Global Scale</span></h2>
+            <p>Every tool and workflow your company needs to equip remote employees and international hubs seamlessly.</p>
+          </div>
+          <div className="benefit-grid">
+            <article className="benefit-card">
+              <div className="benefit-icon"><Boxes size={22} /></div>
+              <h3>Bulk Stock & Auto-Serialization</h3>
+              <p>Upload entire batches of laptops or monitors at once. Unique sequential serial numbers are auto-assigned to each unit.</p>
+              <span className="benefit-number">01</span>
+            </article>
+            <article className="benefit-card">
+              <div className="benefit-icon"><ShieldCheck size={22} /></div>
+              <h3>Conflict Auto-Checker</h3>
+              <p>Guarantees zero asset double-booking. When a device is assigned, pending duplicate requests are auto-cancelled with notices.</p>
+              <span className="benefit-number">02</span>
+            </article>
+            <article className="benefit-card">
+              <div className="benefit-icon"><Truck size={22} /></div>
+              <h3>Direct Order Dispatch</h3>
+              <p>Shipments are created directly from approved employee requests, preserving full lineage and real-time tracking.</p>
+              <span className="benefit-number">03</span>
+            </article>
+            <article className="benefit-card">
+              <div className="benefit-icon"><RotateCcw size={22} /></div>
+              <h3>Collection Address Routing</h3>
+              <p>Reverse logistics allows employees to specify exact street pickup locations for hardware returns and equipment refreshes.</p>
+              <span className="benefit-number">04</span>
+            </article>
+            <article className="benefit-card">
+              <div className="benefit-icon"><Users size={22} /></div>
+              <h3>Role-Based Portals</h3>
+              <p>Clean self-service views for employees showing only their assigned devices and requests, with full management for admins.</p>
+              <span className="benefit-number">05</span>
+            </article>
+            <article className="benefit-card">
+              <div className="benefit-icon"><Globe2 size={22} /></div>
+              <h3>Multi-Country Coverage</h3>
+              <p>Track hardware locations, regional customs requirements, and employee departments worldwide from a single dashboard.</p>
+              <span className="benefit-number">06</span>
+            </article>
+          </div>
+        </section>
+
+        <section className="landing-tracking" id="solutions">
+          <div className="tracking-copy">
+            <span className="section-eyebrow">EFFORTLESS OPERATIONS</span>
+            <h2>Keep your global equipment operations in sync.</h2>
+            <p>Eliminate spreadsheets and lost laptops with an interconnected system that links inventory, employees, and international courier tracking.</p>
+            <button className="landing-text-link" onClick={onGetStarted}>Explore your workspace <ArrowRight size={16} /></button>
+          </div>
           <div className="tracking-preview">
-            <div className="tracking-preview-head"><div><span className="preview-eyebrow">SHIPMENT OVERVIEW</span><h3>Delivery activity</h3></div><span className="preview-badge">Live overview</span></div>
-            <div className="tracking-route"><div className="route-icon"><Package size={21} /></div><div className="route-details"><strong>Equipment shipment</strong><span>Origin and destination details</span></div><span className="route-status">Ready to track</span></div>
+            <div className="tracking-preview-head">
+              <div><span className="preview-eyebrow">SHIPMENT OVERVIEW</span><h3>Delivery activity</h3></div>
+              <span className="preview-badge">Live overview</span>
+            </div>
+            <div className="tracking-route">
+              <div className="route-icon"><Package size={21} /></div>
+              <div className="route-details"><strong>Equipment shipment</strong><span>Origin and destination details</span></div>
+              <span className="route-status">Ready to track</span>
+            </div>
             <div className="route-line"><span></span><span></span><span></span></div>
-            <div className="route-stops"><div><span className="stop-dot completed"></span><strong>Prepared</strong><small>Equipment registered</small></div><div><span className="stop-dot"></span><strong>In transit</strong><small>Shipment updates</small></div><div><span className="stop-dot"></span><strong>Delivered</strong><small>Delivery confirmation</small></div></div>
-            <div className="preview-note"><ShieldCheck size={16} /> Shipment details will appear here once records are added.</div>
+            <div className="route-stops">
+              <div><span className="stop-dot completed"></span><strong>Prepared</strong><small>Equipment registered</small></div>
+              <div><span className="stop-dot completed"></span><strong>In transit</strong><small>Shipment updates</small></div>
+              <div><span className="stop-dot"></span><strong>Delivered</strong><small>Delivery confirmation</small></div>
+            </div>
+            <div className="preview-note"><ShieldCheck size={16} /> Continuous real-time updates as couriers advance checkpoints.</div>
           </div>
         </section>
 
-        <section className="landing-final-cta"><div><span className="section-eyebrow">YOUR GLOBAL EQUIPMENT HUB</span><h2>Make global equipment logistics feel local.</h2><p>Bring your equipment operations together with Globit.</p></div><button className="landing-primary" onClick={onGetStarted}>Get started <ArrowRight size={16} /></button></section>
+        <section className="landing-final-cta">
+          <div>
+            <span className="section-eyebrow">YOUR GLOBAL EQUIPMENT HUB</span>
+            <h2>Make global equipment logistics feel local.</h2>
+            <p>Bring your equipment operations together with Globit.</p>
+          </div>
+          <button className="landing-primary" onClick={onGetStarted}>Get started <ArrowRight size={16} /></button>
+        </section>
       </main>
       <footer className="landing-footer"><Brand /><span>© 2026 Globit</span><span>Global equipment. Simplified.</span></footer>
     </div>
@@ -205,6 +314,7 @@ function AddEquipmentModal({ onClose, onAdded, employees = [] }) {
   const [form, setForm] = useState({
     name: "",
     type: "laptop",
+    quantity: 1,
     serialNumber: "",
     country: "",
     notes: "",
@@ -224,11 +334,12 @@ function AddEquipmentModal({ onClose, onAdded, employees = [] }) {
     try {
       const payload = {
         ...form,
+        quantity: Number(form.quantity) || 1,
         assignedTo: form.assignedTo || null,
         status: form.assignedTo ? "assigned" : "available",
       };
-      const { item } = await api("/equipment", { method: "POST", body: JSON.stringify(payload) });
-      onAdded(item);
+      const res = await api("/equipment", { method: "POST", body: JSON.stringify(payload) });
+      onAdded(res.item, res.items);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -240,13 +351,13 @@ function AddEquipmentModal({ onClose, onAdded, employees = [] }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Add equipment" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <div><h2>Add equipment</h2><p>Register a new device in your workspace.</p></div>
+          <div><h2>Add equipment</h2><p>Register new single or bulk inventory in your workspace.</p></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="form-field">
-            <label htmlFor="eq-name">Name</label>
-            <input id="eq-name" value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. MacBook Pro 14" required />
+            <label htmlFor="eq-name">Equipment name / Model</label>
+            <input id="eq-name" value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Dell UltraSharp 27 Monitor or MacBook Pro 16" required />
           </div>
           <div className="form-row">
             <div className="form-field">
@@ -256,33 +367,63 @@ function AddEquipmentModal({ onClose, onAdded, employees = [] }) {
               </select>
             </div>
             <div className="form-field">
-              <label htmlFor="eq-country">Country</label>
-              <input id="eq-country" value={form.country} onChange={(e) => update("country", e.target.value)} placeholder="e.g. India" />
+              <label htmlFor="eq-quantity">Quantity in stock</label>
+              <input
+                id="eq-quantity"
+                type="number"
+                min="1"
+                max="100"
+                value={form.quantity}
+                onChange={(e) => update("quantity", e.target.value)}
+                required
+              />
             </div>
           </div>
           <div className="form-field">
-            <label htmlFor="eq-serial">Serial number</label>
-            <input id="eq-serial" value={form.serialNumber} onChange={(e) => update("serialNumber", e.target.value)} placeholder="e.g. C02XK1ABJG5H" required />
+            <label htmlFor="eq-serial">
+              {Number(form.quantity) > 1 ? "Base serial prefix (optional — auto-indexed per unit)" : "Serial number (optional — auto-generated if blank)"}
+            </label>
+            <input
+              id="eq-serial"
+              value={form.serialNumber}
+              onChange={(e) => update("serialNumber", e.target.value)}
+              placeholder={Number(form.quantity) > 1 ? "e.g. DEL-27-4K (will create DEL-27-4K-01, -02...)" : "e.g. C02XK1ABJG5H"}
+            />
+            <span className="cell-muted" style={{ fontSize: "12px" }}>
+              {Number(form.quantity) > 1
+                ? "Each physical unit will receive an independent sequential serial number so it can be assigned individually."
+                : "Leave blank to automatically generate a unique asset tracking serial number."}
+            </span>
           </div>
-          <div className="form-field">
-            <label htmlFor="eq-assigned">Assign to employee (optional)</label>
-            <select id="eq-assigned" value={form.assignedTo} onChange={(e) => update("assignedTo", e.target.value)}>
-              <option value="">Unassigned (Available)</option>
-              {employees.map((emp) => (
-                <option key={emp._id} value={emp._id}>
-                  {emp.name} {emp.department ? `(${emp.department})` : ""} — {emp.email}
-                </option>
-              ))}
-            </select>
+          <div className="form-row">
+            <div className="form-field">
+              <label htmlFor="eq-country">Location / Country</label>
+              <input id="eq-country" value={form.country} onChange={(e) => update("country", e.target.value)} placeholder="e.g. United States or Germany" />
+            </div>
+            {Number(form.quantity) === 1 && (
+              <div className="form-field">
+                <label htmlFor="eq-assigned">Assign to employee (optional)</label>
+                <select id="eq-assigned" value={form.assignedTo} onChange={(e) => update("assignedTo", e.target.value)}>
+                  <option value="">Unassigned (Available in stock)</option>
+                  {employees.map((emp) => (
+                    <option key={emp._id} value={emp._id}>
+                      {emp.name} {emp.department ? `(${emp.department})` : ""} — {emp.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <div className="form-field">
             <label htmlFor="eq-notes">Notes (optional)</label>
-            <textarea id="eq-notes" value={form.notes} onChange={(e) => update("notes", e.target.value)} placeholder="Anything worth remembering" />
+            <textarea id="eq-notes" value={form.notes} onChange={(e) => update("notes", e.target.value)} placeholder="Batch notes, specifications, or vendor info" />
           </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="modal-actions">
             <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
-            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving..." : "Add equipment"}</button>
+            <button type="submit" className="primary-button" disabled={saving}>
+              {saving ? "Saving..." : Number(form.quantity) > 1 ? `Add ${form.quantity} items` : "Add equipment"}
+            </button>
           </div>
         </form>
       </div>
@@ -403,12 +544,36 @@ function EditEquipmentModal({ item, employees = [], onClose, onUpdated }) {
   );
 }
 
-function EquipmentTable({ items, loading, search, onClearSearch, onAdd, onEdit, onDelete }) {
+function EquipmentTable({ items, loading, search, role, onClearSearch, onSearchChange, onAdd, onRequestReturn, onEdit, onDelete }) {
+  const isEmployee = role === "employee";
   return (
     <section className="panel">
-      <div className="panel-heading">
-        <div><h2>All equipment</h2><p>Every device registered in your workspace</p></div>
-        <button className="text-button add-action" onClick={onAdd}>Add equipment <Plus size={15} /></button>
+      <div className="panel-heading" style={{ flexWrap: "wrap", gap: "12px" }}>
+        <div>
+          <h2>{isEmployee ? "My devices" : "All equipment"}</h2>
+          <p>{isEmployee ? "Equipment and accessories currently assigned to you" : "Every device registered in your workspace"}</p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "auto", flexWrap: "wrap" }}>
+          <div className="table-search-box">
+            <Search size={14} />
+            <input
+              placeholder={isEmployee ? "Search my devices..." : "Search equipment by name, serial, country..."}
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#94a3b8" }}
+                onClick={onClearSearch}
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          {!isEmployee && <button className="text-button add-action" onClick={onAdd}>Add equipment <Plus size={15} /></button>}
+        </div>
       </div>
       <div className="table-wrap">
         <table>
@@ -418,44 +583,59 @@ function EquipmentTable({ items, loading, search, onClearSearch, onAdd, onEdit, 
               <th>TYPE</th>
               <th>SERIAL NUMBER</th>
               <th>COUNTRY</th>
-              <th>ASSIGNED TO</th>
+              {!isEmployee && <th>ASSIGNED TO</th>}
               <th>STATUS</th>
               <th>ACTIONS</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="7" className="empty-state">Loading equipment...</td></tr>
+              <tr><td colSpan={isEmployee ? 6 : 7} className="empty-state">Loading equipment...</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan="7" className="empty-state">{search ? "No matching equipment found." : "No equipment yet. Add your first item with the button above."}</td></tr>
+              <tr><td colSpan={isEmployee ? 6 : 7} className="empty-state">{search ? "No matching equipment found." : isEmployee ? "No equipment currently assigned to you. Submit a device request to get hardware." : "No equipment yet. Add your first item with the button above."}</td></tr>
             ) : (
               items.map((item) => (
                 <tr key={item._id}>
                   <td className="cell-strong">{item.name}</td>
                   <td className="cell-capitalize">{item.type}</td>
-                  <td>{item.serialNumber}</td>
+                  <td style={{ fontFamily: "monospace", fontSize: "12px" }}>{item.serialNumber}</td>
                   <td>{item.country || "—"}</td>
-                  <td>
-                    {item.assignedTo ? (
-                      <div className="assignee-badge" title={`${item.assignedTo.name} (${item.assignedTo.email || ""})`}>
-                        <span className="assignee-avatar">
-                          {item.assignedTo.name?.[0]?.toUpperCase() || "E"}
-                        </span>
-                        <span>{item.assignedTo.name}</span>
-                      </div>
-                    ) : (
-                      <span className="cell-muted">—</span>
-                    )}
-                  </td>
+                  {!isEmployee && (
+                    <td>
+                      {item.assignedTo ? (
+                        <div className="assignee-badge" title={`${item.assignedTo.name} (${item.assignedTo.email || ""})`}>
+                          <span className="assignee-avatar">
+                            {item.assignedTo.name?.[0]?.toUpperCase() || "E"}
+                          </span>
+                          <span>{item.assignedTo.name}</span>
+                        </div>
+                      ) : (
+                        <span className="cell-muted">—</span>
+                      )}
+                    </td>
+                  )}
                   <td><span className={`status-badge status-${item.status}`}>{statusLabels[item.status] || item.status}</span></td>
                   <td>
                     <div className="table-actions">
-                      <button className="action-btn" title="Edit / Assign equipment" aria-label="Edit equipment" onClick={() => onEdit(item)}>
-                        <Pencil size={14} />
-                      </button>
-                      <button className="action-btn action-btn-danger" title="Delete equipment" aria-label="Delete equipment" onClick={() => onDelete(item)}>
-                        <Trash2 size={14} />
-                      </button>
+                      {!isEmployee ? (
+                        <>
+                          <button className="action-btn" title="Edit / Assign equipment" aria-label="Edit equipment" onClick={() => onEdit(item)}>
+                            <Pencil size={14} />
+                          </button>
+                          <button className="action-btn action-btn-danger" title="Delete equipment" aria-label="Delete equipment" onClick={() => onDelete(item)}>
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          className="action-btn"
+                          title="Request return for this device"
+                          aria-label="Request return"
+                          onClick={() => onRequestReturn(item)}
+                        >
+                          <RotateCcw size={14} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -464,7 +644,7 @@ function EquipmentTable({ items, loading, search, onClearSearch, onAdd, onEdit, 
           </tbody>
         </table>
       </div>
-      <div className="panel-footer"><span>{items.length} items</span><button onClick={onClearSearch}>Clear search</button></div>
+      <div className="panel-footer"><span>{items.length} items</span>{search ? <button onClick={onClearSearch}>Clear search</button> : null}</div>
     </section>
   );
 }
@@ -477,6 +657,7 @@ function AddEmployeeModal({ onClose, onAdded }) {
     country: "",
     address: "",
     status: "active",
+    password: "",
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -539,6 +720,17 @@ function AddEmployeeModal({ onClose, onAdded }) {
               <option value="inactive">Inactive</option>
               <option value="on_leave">On leave</option>
             </select>
+          </div>
+          <div className="form-field">
+            <label htmlFor="emp-password">Sign-in password (optional)</label>
+            <input
+              id="emp-password"
+              value={form.password}
+              onChange={(e) => update("password", e.target.value)}
+              placeholder="e.g. Employee@123 (defaults to Employee@123)"
+              minLength={8}
+            />
+            <span className="cell-muted">A sign-in user account will be created so this employee can log in and request devices.</span>
           </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="modal-actions">
@@ -633,33 +825,75 @@ function EditEmployeeModal({ employee, onClose, onUpdated }) {
   );
 }
 
-function AddRequestModal({ employees = [], onClose, onAdded }) {
+function AddRequestModal({ employees = [], currentUser = null, onClose, onAdded }) {
+  const isEmployee = currentUser?.role === "employee";
   const [form, setForm] = useState({
-    employee: employees[0]?._id || "",
+    employee: isEmployee ? "" : (employees[0]?._id || ""),
+    equipment: "",
     item: "",
     itemType: "laptop",
     reason: "",
     status: "pending",
   });
+  const [availableItems, setAvailableItems] = useState([]);
+  const [loadingAvailable, setLoadingAvailable] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let ignore = false;
+    api("/equipment?status=available")
+      .then(({ items }) => {
+        if (!ignore) {
+          setAvailableItems(items || []);
+          setLoadingAvailable(false);
+        }
+      })
+      .catch(() => {
+        if (!ignore) setLoadingAvailable(false);
+      });
+    return () => { ignore = true; };
+  }, []);
 
   function update(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
+  function handleSelectAvailable(equipmentId) {
+    if (!equipmentId) {
+      setForm((curr) => ({ ...curr, equipment: "", item: "", itemType: "laptop" }));
+      return;
+    }
+    const found = availableItems.find((eq) => eq._id === equipmentId);
+    if (found) {
+      setForm((curr) => ({
+        ...curr,
+        equipment: found._id,
+        item: found.name,
+        itemType: found.type,
+      }));
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
-    if (!form.employee) {
+    if (!isEmployee && !form.employee) {
       setError("Please select an employee.");
+      return;
+    }
+    if (!form.equipment) {
+      setError("Please select an available device from the inventory list.");
       return;
     }
     setSaving(true);
     setError("");
     try {
+      const payload = isEmployee
+        ? { equipment: form.equipment, item: form.item, itemType: form.itemType, reason: form.reason }
+        : form;
       const { request } = await api("/requests", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       onAdded(request);
     } catch (err) {
@@ -669,45 +903,105 @@ function AddRequestModal({ employees = [], onClose, onAdded }) {
     }
   }
 
+  const selectedDevice = availableItems.find((eq) => eq._id === form.equipment);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Add equipment request" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <div><h2>New equipment request</h2><p>Submit an equipment request on behalf of an employee.</p></div>
+          <div>
+            <h2>{isEmployee ? "Request equipment" : "New equipment request"}</h2>
+            <p>{isEmployee ? "Select an available in-stock device to request for your work." : "Submit an equipment request on behalf of an employee."}</p>
+          </div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="form-field">
-            <label htmlFor="req-emp">Employee</label>
-            <select id="req-emp" value={form.employee} onChange={(e) => update("employee", e.target.value)} required>
-              <option value="">Select employee...</option>
-              {employees.map((emp) => (
-                <option key={emp._id} value={emp._id}>
-                  {emp.name} ({emp.department || "No department"}) — {emp.email}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-field">
-            <label htmlFor="req-item">Equipment / Item</label>
-            <input id="req-item" value={form.item} onChange={(e) => update("item", e.target.value)} placeholder="e.g. MacBook Pro 16 or External Monitor" required />
-          </div>
-          <div className="form-field">
-            <label htmlFor="req-type">Item category</label>
-            <select id="req-type" value={form.itemType} onChange={(e) => update("itemType", e.target.value)}>
-              {equipmentTypes.map((type) => (
-                <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-field">
-            <label htmlFor="req-reason">Reason / Justification (optional)</label>
-            <textarea id="req-reason" value={form.reason} onChange={(e) => update("reason", e.target.value)} placeholder="Why is this equipment needed?" />
-          </div>
+          {isEmployee ? (
+            <div style={{ background: "#f8f9ff", border: "1px solid #e0e7ff", borderRadius: "10px", padding: "12px 14px", display: "flex", alignItems: "center", gap: "10px", color: "#4338ca", fontSize: "13px", marginBottom: "16px" }}>
+              <Package size={18} />
+              <span>Requesting as: <strong>{currentUser.name}</strong> ({currentUser.email})</span>
+            </div>
+          ) : (
+            <div className="form-field">
+              <label htmlFor="req-emp">Employee</label>
+              <select id="req-emp" value={form.employee} onChange={(e) => update("employee", e.target.value)} required>
+                <option value="">Select employee...</option>
+                {employees.map((emp) => (
+                  <option key={emp._id} value={emp._id}>
+                    {emp.name} ({emp.department || "No department"}) — {emp.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {loadingAvailable ? (
+            <div style={{ padding: "28px", textAlign: "center", color: "#94a3b8", fontSize: "13px" }}>
+              Loading available inventory...
+            </div>
+          ) : availableItems.length === 0 ? (
+            <div style={{ padding: "24px 20px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "10px", textAlign: "center", color: "#991b1b", marginBottom: "18px" }}>
+              <div style={{ fontSize: "28px", marginBottom: "8px" }}>📦</div>
+              <strong style={{ display: "block", fontSize: "14px", marginBottom: "6px" }}>No Equipment Available in Stock</strong>
+              <p style={{ fontSize: "12px", margin: 0, color: "#b91c1c", lineHeight: 1.5 }}>
+                There is currently no hardware available in stock to request. Please ask your IT Administrator to add equipment inventory before submitting a request.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="form-field">
+                <label htmlFor="req-select-avail">Select available device from inventory</label>
+                <select
+                  id="req-select-avail"
+                  value={form.equipment}
+                  onChange={(e) => handleSelectAvailable(e.target.value)}
+                  required
+                >
+                  <option value="">Choose an available device in stock...</option>
+                  {availableItems.map((item) => (
+                    <option key={item._id} value={item._id}>
+                      {item.name} ({item.type.toUpperCase()}) — SN: {item.serialNumber} {item.country ? `· ${item.country}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedDevice && (
+                <div style={{ padding: "12px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", fontSize: "12px", color: "#166534", marginBottom: "14px" }}>
+                  <strong>Selected:</strong> {selectedDevice.name} ({selectedDevice.type.toUpperCase()})
+                  <span style={{ display: "block", fontSize: "11px", color: "#15803d", marginTop: "2px" }}>
+                    Serial: {selectedDevice.serialNumber} · Location: {selectedDevice.country || "Global"}
+                  </span>
+                  <span style={{ display: "block", fontSize: "11px", color: "#16a34a", marginTop: "3px" }}>
+                    ✓ This device will be automatically assigned to you upon IT Admin approval.
+                  </span>
+                </div>
+              )}
+
+              <div className="form-field">
+                <label htmlFor="req-reason">Business reason / Notes</label>
+                <textarea
+                  id="req-reason"
+                  value={form.reason}
+                  onChange={(e) => update("reason", e.target.value)}
+                  placeholder="e.g. Primary engineering machine for development sprint or replacement"
+                  rows={2}
+                  required
+                />
+              </div>
+            </>
+          )}
+
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="modal-actions">
             <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
-            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Submitting..." : "Submit request"}</button>
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={saving || loadingAvailable || availableItems.length === 0 || !form.equipment}
+            >
+              {saving ? "Submitting..." : availableItems.length === 0 ? "No Stock Available" : "Submit Request"}
+            </button>
           </div>
         </form>
       </div>
@@ -715,18 +1009,42 @@ function AddRequestModal({ employees = [], onClose, onAdded }) {
   );
 }
 
-function RequestsTable({ requests, loading, search, onClearSearch, onAdd, onUpdateStatus, onDelete }) {
+function RequestsTable({ requests, loading, search, role, onClearSearch, onSearchChange, onAdd, onUpdateStatus, onDispatch, onDelete }) {
+  const isEmployee = role === "employee";
   return (
     <section className="panel">
-      <div className="panel-heading">
-        <div><h2>All requests</h2><p>Equipment requests submitted by team members</p></div>
-        <button className="text-button add-action" onClick={onAdd}>Add request <Plus size={15} /></button>
+      <div className="panel-heading" style={{ flexWrap: "wrap", gap: "12px" }}>
+        <div>
+          <h2>{isEmployee ? "My requests" : "All requests"}</h2>
+          <p>{isEmployee ? "Equipment requests submitted by you and their live approval status" : "Equipment requests submitted by team members (approve to assign & dispatch)"}</p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "auto", flexWrap: "wrap" }}>
+          <div className="table-search-box">
+            <Search size={14} />
+            <input
+              placeholder={isEmployee ? "Search my requests..." : "Search requests by item, employee, reason, status..."}
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#94a3b8" }}
+                onClick={onClearSearch}
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          <button className="text-button add-action" onClick={onAdd}>{isEmployee ? "Request device" : "Add request"} <Plus size={15} /></button>
+        </div>
       </div>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>EMPLOYEE</th>
+              {!isEmployee && <th>EMPLOYEE</th>}
               <th>REQUESTED ITEM</th>
               <th>TYPE</th>
               <th>DATE</th>
@@ -737,41 +1055,60 @@ function RequestsTable({ requests, loading, search, onClearSearch, onAdd, onUpda
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="7" className="empty-state">Loading requests...</td></tr>
+              <tr><td colSpan={isEmployee ? 6 : 7} className="empty-state">Loading requests...</td></tr>
             ) : requests.length === 0 ? (
-              <tr><td colSpan="7" className="empty-state">{search ? "No matching requests found." : "No requests yet. Submit your first request with the button above."}</td></tr>
+              <tr><td colSpan={isEmployee ? 6 : 7} className="empty-state">{search ? "No matching requests found." : isEmployee ? "You haven't requested any devices yet. Click 'Request device' above to choose from available inventory." : "No requests yet. Submit your first request with the button above."}</td></tr>
             ) : (
               requests.map((req) => (
                 <tr key={req._id}>
-                  <td>
-                    <div className="employee-cell">
-                      <span className="employee-avatar">
-                        {req.employee?.name?.[0]?.toUpperCase() || "E"}
-                      </span>
-                      <div className="employee-info-cell">
-                        <strong>{req.employee?.name || "Unknown employee"}</strong>
-                        <span>{req.employee?.department || req.employee?.email || "—"}</span>
+                  {!isEmployee && (
+                    <td>
+                      <div className="employee-cell">
+                        <span className="employee-avatar">
+                          {req.employee?.name?.[0]?.toUpperCase() || "E"}
+                        </span>
+                        <div className="employee-info-cell">
+                          <strong>{req.employee?.name || "Unknown employee"}</strong>
+                          <span>{req.employee?.department || req.employee?.email || "—"}</span>
+                        </div>
                       </div>
-                    </div>
+                    </td>
+                  )}
+                  <td>
+                    <span className="cell-strong">{req.item}</span>
+                    {req.equipment?.serialNumber && (
+                      <span className="cell-muted" style={{ fontSize: "11px", display: "block", fontFamily: "monospace" }}>
+                        SN: {req.equipment.serialNumber}
+                      </span>
+                    )}
                   </td>
-                  <td className="cell-strong">{req.item}</td>
                   <td className="cell-capitalize">{req.itemType || "laptop"}</td>
                   <td>{req.date || "—"}</td>
                   <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={req.reason}>
                     {req.reason || "—"}
+                    {req.rejectionReason && (
+                      <div style={{ fontSize: "11px", color: "#ef4444", marginTop: "2px" }} title={req.rejectionReason}>
+                        ✕ {req.rejectionReason}
+                      </div>
+                    )}
                   </td>
                   <td>
                     <span className={`status-badge status-${req.status}`}>
                       {statusLabels[req.status] || req.status}
                     </span>
+                    {req.shipment && (
+                      <span className="cell-muted" style={{ fontSize: "10px", display: "block", marginTop: "2px", color: "#16a34a" }}>
+                        Tracking: {req.shipment.carrier || "Carrier"} #{req.shipment.trackingNumber || "—"}
+                      </span>
+                    )}
                   </td>
                   <td>
                     <div className="table-actions">
-                      {req.status === "pending" && (
+                      {!isEmployee && req.status === "pending" && (
                         <>
                           <button
                             className="action-btn action-btn-success"
-                            title="Approve request"
+                            title="Approve & Assign equipment to employee"
                             aria-label="Approve request"
                             onClick={() => onUpdateStatus(req._id, "approved")}
                           >
@@ -787,14 +1124,55 @@ function RequestsTable({ requests, loading, search, onClearSearch, onAdd, onUpda
                           </button>
                         </>
                       )}
-                      <button
-                        className="action-btn action-btn-danger"
-                        title="Delete request"
-                        aria-label="Delete request"
-                        onClick={() => onDelete(req)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {!isEmployee && req.status === "approved" && (
+                        <button
+                          className="action-btn"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "5px",
+                            width: "auto",
+                            padding: "4px 9px",
+                            fontSize: "11px",
+                            fontWeight: "600",
+                            color: "#6554d9",
+                            background: "#f0edff",
+                            border: "1px solid #d9d2fc",
+                            borderRadius: "6px"
+                          }}
+                          title="Create and dispatch shipment for this approved equipment"
+                          aria-label="Dispatch shipment"
+                          onClick={() => onDispatch(req)}
+                        >
+                          <Truck size={13} /> Dispatch
+                        </button>
+                      )}
+                      {!isEmployee && req.status === "fulfilled" && (
+                        <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: "600" }}>
+                          ✓ Dispatched
+                        </span>
+                      )}
+                      {!isEmployee && (
+                        <button
+                          className="action-btn action-btn-danger"
+                          title="Delete request"
+                          aria-label="Delete request"
+                          onClick={() => onDelete(req)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                      {isEmployee && (
+                        <span className="cell-muted" style={{ fontSize: "12px" }}>
+                          {req.status === "pending"
+                            ? "Awaiting review"
+                            : req.status === "approved"
+                              ? "Approved & Assigned"
+                              : req.status === "rejected"
+                                ? "Cancelled"
+                                : "Dispatched"}
+                        </span>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -805,22 +1183,22 @@ function RequestsTable({ requests, loading, search, onClearSearch, onAdd, onUpda
       </div>
       <div className="panel-footer">
         <span>{requests.length} requests</span>
-        <button onClick={onClearSearch}>Clear search</button>
+        {search ? <button onClick={onClearSearch}>Clear search</button> : null}
       </div>
     </section>
   );
 }
 
-function AddShipmentModal({ equipment = [], employees = [], onClose, onAdded }) {
-  // Only items that are free to ship (not already on the road, not retired)
+function AddShipmentModal({ equipment = [], employees = [], initialRequest = null, onClose, onAdded }) {
   const shippable = equipment.filter((item) => item.status === "available" || item.status === "assigned");
   const recipients = employees.filter((emp) => emp.status === "active");
+
   const [form, setForm] = useState({
-    equipment: "",
-    employee: "",
-    carrier: "",
+    equipment: initialRequest?.equipment?._id || initialRequest?.equipment || "",
+    employee: initialRequest?.employee?._id || initialRequest?.employee || "",
+    carrier: "DHL",
     trackingNumber: "",
-    destinationCountry: "",
+    destinationCountry: initialRequest?.employee?.country || "",
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -828,7 +1206,6 @@ function AddShipmentModal({ equipment = [], employees = [], onClose, onAdded }) 
   function update(field, value) {
     setForm((current) => {
       const next = { ...current, [field]: value };
-      // Suggest the employee's country as the destination
       if (field === "employee" && !current.destinationCountry) {
         const chosen = employees.find((emp) => emp._id === value);
         if (chosen?.country) next.destinationCountry = chosen.country;
@@ -840,14 +1217,18 @@ function AddShipmentModal({ equipment = [], employees = [], onClose, onAdded }) 
   async function handleSubmit(event) {
     event.preventDefault();
     if (!form.equipment || !form.employee) {
-      setError("Choose the equipment and the employee.");
+      setError("Choose the equipment and the recipient employee.");
       return;
     }
     setSaving(true);
     setError("");
     try {
-      const { shipment } = await api("/shipments", { method: "POST", body: JSON.stringify(form) });
-      onAdded(shipment);
+      const payload = {
+        ...form,
+        request: initialRequest?._id || undefined,
+      };
+      const { shipment } = await api("/shipments", { method: "POST", body: JSON.stringify(payload) });
+      onAdded(shipment, initialRequest?._id);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -859,22 +1240,26 @@ function AddShipmentModal({ equipment = [], employees = [], onClose, onAdded }) 
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Add shipment" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <div><h2>New shipment</h2><p>Send a device to an employee and track it until it arrives.</p></div>
+          <div><h2>Dispatch shipment</h2><p>Ship equipment to an employee and track carrier progress.</p></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit}>
+          {initialRequest && (
+            <div style={{ padding: "10px 14px", background: "#f0edff", border: "1px solid #d9d2fc", borderRadius: "8px", marginBottom: "16px", fontSize: "12px", color: "#5140c0" }}>
+              📦 <strong>Fulfilling Request:</strong> {initialRequest.item} for <strong>{initialRequest.employee?.name}</strong>
+            </div>
+          )}
           <div className="form-field">
-            <label htmlFor="ship-equipment">Equipment</label>
+            <label htmlFor="ship-equipment">Equipment to ship</label>
             <select id="ship-equipment" value={form.equipment} onChange={(e) => update("equipment", e.target.value)} required>
               <option value="">Select equipment...</option>
               {shippable.map((item) => (
-                <option key={item._id} value={item._id}>{item.name} — {item.serialNumber}</option>
+                <option key={item._id} value={item._id}>{item.name} — SN: {item.serialNumber} ({item.status})</option>
               ))}
             </select>
-            {shippable.length === 0 && <span className="cell-muted">No equipment is free to ship right now.</span>}
           </div>
           <div className="form-field">
-            <label htmlFor="ship-employee">Send to employee</label>
+            <label htmlFor="ship-employee">Recipient employee</label>
             <select id="ship-employee" value={form.employee} onChange={(e) => update("employee", e.target.value)} required>
               <option value="">Select employee...</option>
               {recipients.map((emp) => (
@@ -886,22 +1271,22 @@ function AddShipmentModal({ equipment = [], employees = [], onClose, onAdded }) 
           </div>
           <div className="form-row">
             <div className="form-field">
-              <label htmlFor="ship-carrier">Carrier (optional)</label>
-              <input id="ship-carrier" value={form.carrier} onChange={(e) => update("carrier", e.target.value)} placeholder="e.g. DHL" />
+              <label htmlFor="ship-carrier">Carrier</label>
+              <input id="ship-carrier" value={form.carrier} onChange={(e) => update("carrier", e.target.value)} placeholder="e.g. DHL, FedEx, UPS" required />
             </div>
             <div className="form-field">
-              <label htmlFor="ship-tracking">Tracking number (optional)</label>
-              <input id="ship-tracking" value={form.trackingNumber} onChange={(e) => update("trackingNumber", e.target.value)} placeholder="e.g. 1Z999AA10123456784" />
+              <label htmlFor="ship-tracking">Tracking number</label>
+              <input id="ship-tracking" value={form.trackingNumber} onChange={(e) => update("trackingNumber", e.target.value)} placeholder="e.g. 1Z999AA10123456784" required />
             </div>
           </div>
           <div className="form-field">
-            <label htmlFor="ship-country">Destination country</label>
-            <input id="ship-country" value={form.destinationCountry} onChange={(e) => update("destinationCountry", e.target.value)} placeholder="e.g. India" />
+            <label htmlFor="ship-country">Destination country / Location</label>
+            <input id="ship-country" value={form.destinationCountry} onChange={(e) => update("destinationCountry", e.target.value)} placeholder="e.g. Germany or United States" required />
           </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="modal-actions">
             <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
-            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Creating..." : "Create shipment"}</button>
+            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Dispatching..." : "Dispatch shipment"}</button>
           </div>
         </form>
       </div>
@@ -909,22 +1294,44 @@ function AddShipmentModal({ equipment = [], employees = [], onClose, onAdded }) 
   );
 }
 
-function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd, onTrack, onStatus, onDelete }) {
+function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onSearchChange, onTrack, onStatus, onDelete }) {
   const canManage = role === "admin" || role === "manager";
   const canDelete = role === "admin";
 
   return (
     <section className="panel">
-      <div className="panel-heading">
-        <div><h2>All shipments</h2><p>Equipment on its way to your team, worldwide</p></div>
-        <button className="text-button add-action" onClick={onAdd}>Add shipment <Plus size={15} /></button>
+      <div className="panel-heading" style={{ flexWrap: "wrap", gap: "12px" }}>
+        <div>
+          <h2>{canManage ? "All shipments" : "My shipments"}</h2>
+          <p>{canManage ? "Active equipment shipments (dispatched directly from approved employee requests)" : "Equipment packages currently in transit to your location"}</p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "auto", flexWrap: "wrap" }}>
+          <div className="table-search-box">
+            <Search size={14} />
+            <input
+              placeholder="Search shipments by carrier, tracking, employee, country..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#94a3b8" }}
+                onClick={onClearSearch}
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
               <th>EQUIPMENT</th>
-              <th>EMPLOYEE</th>
+              {canManage && <th>EMPLOYEE</th>}
               <th>DESTINATION</th>
               <th>CARRIER</th>
               <th>STATUS</th>
@@ -933,9 +1340,9 @@ function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="6" className="empty-state">Loading shipments...</td></tr>
+              <tr><td colSpan={canManage ? 6 : 5} className="empty-state">Loading shipments...</td></tr>
             ) : shipments.length === 0 ? (
-              <tr><td colSpan="6" className="empty-state">{search ? "No matching shipments found." : "No shipments yet. Create your first shipment with the button above."}</td></tr>
+              <tr><td colSpan={canManage ? 6 : 5} className="empty-state">{search ? "No matching shipments found." : canManage ? "No shipments yet. Create your first shipment with the button above." : "No shipments currently in transit to you."}</td></tr>
             ) : (
               shipments.map((shipment) => {
                 const open = shipment.status === "processing" || shipment.status === "in_transit";
@@ -943,16 +1350,18 @@ function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd
                   <tr key={shipment._id}>
                     <td>
                       <div className="employee-info-cell">
-                        <strong>{shipment.equipment?.name || "Removed equipment"}</strong>
+                        <strong>{shipment.equipment?.name || "Equipment"}</strong>
                         <span>{shipment.equipment?.serialNumber || "—"}</span>
                       </div>
                     </td>
-                    <td>
-                      <div className="assignee-badge">
-                        <span className="assignee-avatar">{shipment.employee?.name?.[0]?.toUpperCase() || "E"}</span>
-                        <span>{shipment.employee?.name || "Removed employee"}</span>
-                      </div>
-                    </td>
+                    {canManage && (
+                      <td>
+                        <div className="assignee-badge">
+                          <span className="assignee-avatar">{shipment.employee?.name?.[0]?.toUpperCase() || "E"}</span>
+                          <span>{shipment.employee?.name || "Removed employee"}</span>
+                        </div>
+                      </td>
+                    )}
                     <td>{shipment.destinationCountry || "—"}</td>
                     <td>
                       <div className="employee-info-cell">
@@ -967,7 +1376,7 @@ function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd
                     </td>
                     <td>
                       <div className="table-actions">
-                        <button className="action-btn" title="View tracking" aria-label="View tracking" onClick={() => onTrack(shipment)}>
+                        <button className="action-btn" title="View tracking timeline" aria-label="View tracking" onClick={() => onTrack(shipment)}>
                           <MapPin size={14} />
                         </button>
                         {canManage && shipment.status === "processing" && (
@@ -986,7 +1395,7 @@ function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd
                           </button>
                         )}
                         {canDelete && !open && (
-                          <button className="action-btn action-btn-danger" title="Delete shipment" aria-label="Delete shipment" onClick={() => onDelete(shipment)}>
+                          <button className="action-btn action-btn-danger" title="Delete shipment record" aria-label="Delete shipment" onClick={() => onDelete(shipment)}>
                             <Trash2 size={14} />
                           </button>
                         )}
@@ -999,10 +1408,7 @@ function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd
           </tbody>
         </table>
       </div>
-      <div className="panel-footer">
-        <span>{shipments.length} shipments</span>
-        <button onClick={onClearSearch}>Clear search</button>
-      </div>
+      <div className="panel-footer"><span>{shipments.length} shipments</span>{search ? <button onClick={onClearSearch}>Clear search</button> : null}</div>
     </section>
   );
 }
@@ -1051,10 +1457,20 @@ function TrackingModal({ shipment, onClose }) {
   );
 }
 
-function AddReturnModal({ equipment = [], onClose, onAdded }) {
-  // Only devices currently assigned to someone can come back
+function AddReturnModal({ equipment = [], initialEquipment = null, currentUser = null, onClose, onAdded }) {
   const returnable = equipment.filter((item) => item.status === "assigned" && item.assignedTo);
-  const [form, setForm] = useState({ equipment: "", reason: "", condition: "good" });
+  const defaultAddress = initialEquipment?.country
+    ? `Office or Home pickup (${initialEquipment.country})`
+    : currentUser?.country
+      ? `Pickup at ${currentUser.name}'s location (${currentUser.country})`
+      : "";
+
+  const [form, setForm] = useState({
+    equipment: initialEquipment?._id || (returnable[0]?._id || ""),
+    collectionAddress: defaultAddress,
+    reason: "",
+    condition: "good",
+  });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -1066,6 +1482,10 @@ function AddReturnModal({ equipment = [], onClose, onAdded }) {
     event.preventDefault();
     if (!form.equipment) {
       setError("Choose the equipment that is being returned.");
+      return;
+    }
+    if (!form.collectionAddress.trim()) {
+      setError("Please provide the collection address where the device will be picked up.");
       return;
     }
     setSaving(true);
@@ -1084,37 +1504,55 @@ function AddReturnModal({ equipment = [], onClose, onAdded }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Add return" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <div><h2>New return</h2><p>Record a device that is coming back from an employee.</p></div>
+          <div><h2>Request device return</h2><p>Schedule equipment recovery and specify the pickup location.</p></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit}>
+          {initialEquipment && (
+            <div style={{ padding: "10px 14px", background: "#f0edff", border: "1px solid #d9d2fc", borderRadius: "8px", marginBottom: "16px", fontSize: "12px", color: "#5140c0" }}>
+              🔄 <strong>Returning:</strong> {initialEquipment.name} (SN: {initialEquipment.serialNumber})
+            </div>
+          )}
           <div className="form-field">
-            <label htmlFor="ret-equipment">Equipment</label>
+            <label htmlFor="ret-equipment">Equipment to return</label>
             <select id="ret-equipment" value={form.equipment} onChange={(e) => update("equipment", e.target.value)} required>
               <option value="">Select equipment...</option>
-              {returnable.map((item) => (
+              {(initialEquipment ? [initialEquipment, ...returnable.filter(r => r._id !== initialEquipment._id)] : returnable).map((item) => (
                 <option key={item._id} value={item._id}>
-                  {item.name} — {item.assignedTo?.name || "assigned employee"}
+                  {item.name} — SN: {item.serialNumber} ({item.assignedTo?.name || "Assigned"})
                 </option>
               ))}
             </select>
-            {returnable.length === 0 && <span className="cell-muted">No equipment is assigned to an employee right now.</span>}
+          </div>
+          <div className="form-field">
+            <label htmlFor="ret-address">Collection / Pickup address</label>
+            <textarea
+              id="ret-address"
+              value={form.collectionAddress}
+              onChange={(e) => update("collectionAddress", e.target.value)}
+              placeholder="Enter full street address where the courier will collect the equipment"
+              rows={2}
+              required
+            />
+            <span className="cell-muted" style={{ fontSize: "12px" }}>
+              Courier pickup will be arranged at this specified collection address.
+            </span>
           </div>
           <div className="form-field">
             <label htmlFor="ret-condition">Expected condition</label>
             <select id="ret-condition" value={form.condition} onChange={(e) => update("condition", e.target.value)}>
-              <option value="good">Good</option>
-              <option value="damaged">Damaged</option>
+              <option value="good">Good (Fully functional)</option>
+              <option value="damaged">Damaged (Needs repair / replacement)</option>
             </select>
           </div>
           <div className="form-field">
-            <label htmlFor="ret-reason">Reason (optional)</label>
-            <textarea id="ret-reason" value={form.reason} onChange={(e) => update("reason", e.target.value)} placeholder="e.g. Employee is leaving the company" />
+            <label htmlFor="ret-reason">Return reason (optional)</label>
+            <textarea id="ret-reason" value={form.reason} onChange={(e) => update("reason", e.target.value)} placeholder="e.g. Project finished, Hardware refresh, or Role change" />
           </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="modal-actions">
             <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
-            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving..." : "Create return"}</button>
+            <button type="submit" className="primary-button" disabled={saving}>{saving ? "Submitting..." : "Schedule return"}</button>
           </div>
         </form>
       </div>
@@ -1164,22 +1602,45 @@ function CompleteReturnModal({ item, onClose, onSubmit }) {
   );
 }
 
-function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, onReceive, onComplete, onCancel, onDelete }) {
+function ReturnsTable({ returns, loading, search, role, onClearSearch, onSearchChange, onAdd, onReceive, onComplete, onCancel, onDelete }) {
   const canManage = role === "admin" || role === "manager";
   const canDelete = role === "admin";
 
   return (
     <section className="panel">
-      <div className="panel-heading">
-        <div><h2>All returns</h2><p>Devices coming back from your team</p></div>
-        <button className="text-button add-action" onClick={onAdd}>Add return <Plus size={15} /></button>
+      <div className="panel-heading" style={{ flexWrap: "wrap", gap: "12px" }}>
+        <div>
+          <h2>{canManage ? "All returns" : "My returns"}</h2>
+          <p>{canManage ? "Devices coming back from your team" : "Equipment returned or scheduled for recovery"}</p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "auto", flexWrap: "wrap" }}>
+          <div className="table-search-box">
+            <Search size={14} />
+            <input
+              placeholder="Search returns by equipment, employee, reason, address..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#94a3b8" }}
+                onClick={onClearSearch}
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          {canManage && <button className="text-button add-action" onClick={onAdd}>Add return <Plus size={15} /></button>}
+        </div>
       </div>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
               <th>EQUIPMENT</th>
-              <th>EMPLOYEE</th>
+              {canManage && <th>EMPLOYEE</th>}
               <th>REASON</th>
               <th>CONDITION</th>
               <th>STATUS</th>
@@ -1188,9 +1649,9 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="6" className="empty-state">Loading returns...</td></tr>
+              <tr><td colSpan={canManage ? 6 : 5} className="empty-state">Loading returns...</td></tr>
             ) : returns.length === 0 ? (
-              <tr><td colSpan="6" className="empty-state">{search ? "No matching returns found." : "No returns yet. Record your first return with the button above."}</td></tr>
+              <tr><td colSpan={canManage ? 6 : 5} className="empty-state">{search ? "No matching returns found." : canManage ? "No returns yet. Record your first return with the button above." : "No return records."}</td></tr>
             ) : (
               returns.map((item) => {
                 const open = item.status === "requested" || item.status === "received";
@@ -1202,14 +1663,24 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
                         <span>{item.equipment?.serialNumber || "—"}</span>
                       </div>
                     </td>
-                    <td>
-                      <div className="assignee-badge">
-                        <span className="assignee-avatar">{item.employee?.name?.[0]?.toUpperCase() || "E"}</span>
-                        <span>{item.employee?.name || "Removed employee"}</span>
-                      </div>
-                    </td>
-                    <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.reason}>
-                      {item.reason || "—"}
+                    {canManage && (
+                      <td>
+                        <div className="assignee-badge">
+                          <span className="assignee-avatar">{item.employee?.name?.[0]?.toUpperCase() || "E"}</span>
+                          <span>{item.employee?.name || "Removed employee"}</span>
+                        </div>
+                      </td>
+                    )}
+                    <td style={{ maxWidth: "240px", overflow: "hidden", textOverflow: "ellipsis" }} title={item.reason}>
+                      <div>{item.reason || "—"}</div>
+                      {item.collectionAddress && (
+                        <div style={{ fontSize: "11px", color: "#64748b", marginTop: "3px", display: "flex", alignItems: "center", gap: "3px" }} title={`Collection: ${item.collectionAddress}`}>
+                          <MapPin size={11} style={{ flexShrink: 0, color: "#6554d9" }} />
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {item.collectionAddress}
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="cell-capitalize">{item.condition}</td>
                     <td>
@@ -1239,6 +1710,11 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
                             <Trash2 size={14} />
                           </button>
                         )}
+                        {!canManage && (
+                          <span className="cell-muted" style={{ fontSize: "12px" }}>
+                            {item.status === "completed" ? "Completed" : item.status === "received" ? "Under inspection" : "Pending pickup"}
+                          </span>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1248,10 +1724,7 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
           </tbody>
         </table>
       </div>
-      <div className="panel-footer">
-        <span>{returns.length} returns</span>
-        <button onClick={onClearSearch}>Clear search</button>
-      </div>
+      <div className="panel-footer"><span>{returns.length} returns</span>{search ? <button onClick={onClearSearch}>Clear search</button> : null}</div>
     </section>
   );
 }
@@ -1259,7 +1732,7 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
 const roleOptions = ["admin", "manager", "employee", "viewer"];
 
 function AddUserModal({ onClose, onAdded }) {
-  const [form, setForm] = useState({ name: "", email: "", role: "employee", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", role: "employee", password: "", department: "", country: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -1303,10 +1776,24 @@ function AddUserModal({ onClose, onAdded }) {
               {roleOptions.map((role) => <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</option>)}
             </select>
           </div>
+          {form.role === "employee" && (
+            <div className="form-row">
+              <div className="form-field">
+                <label htmlFor="user-dept">Department (optional)</label>
+                <input id="user-dept" value={form.department || ""} onChange={(e) => update("department", e.target.value)} placeholder="e.g. Engineering" />
+              </div>
+              <div className="form-field">
+                <label htmlFor="user-country">Country (optional)</label>
+                <input id="user-country" value={form.country || ""} onChange={(e) => update("country", e.target.value)} placeholder="e.g. India" />
+              </div>
+            </div>
+          )}
           <div className="form-field">
             <label htmlFor="user-password">Temporary password</label>
             <input id="user-password" value={form.password} onChange={(e) => update("password", e.target.value)} placeholder="At least 8 characters" minLength={8} required />
-            <span className="cell-muted">Share it privately. The user can change it after signing in.</span>
+            <span className="cell-muted">
+              {form.role === "employee" ? "This creates a sign-in account and automatically registers them in the employee directory." : "Share it privately. The user can change it after signing in."}
+            </span>
           </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="modal-actions">
@@ -1492,12 +1979,35 @@ function ChangePasswordModal({ onClose }) {
   );
 }
 
-function UsersTable({ users, loading, search, currentUserId, onClearSearch, onAdd, onEdit, onReset }) {
+function UsersTable({ users, loading, search, currentUserId, onClearSearch, onSearchChange, onAdd, onEdit, onReset }) {
   return (
     <section className="panel">
-      <div className="panel-heading">
-        <div><h2>All users</h2><p>People who can sign in to Globit, and what they can do</p></div>
-        <button className="text-button add-action" onClick={onAdd}>Add user <Plus size={15} /></button>
+      <div className="panel-heading" style={{ flexWrap: "wrap", gap: "12px" }}>
+        <div>
+          <h2>All users</h2>
+          <p>People who can sign in to Globit, and what they can do</p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "auto", flexWrap: "wrap" }}>
+          <div className="table-search-box">
+            <Search size={14} />
+            <input
+              placeholder="Search users by name, email, role, status..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#94a3b8" }}
+                onClick={onClearSearch}
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          <button className="text-button add-action" onClick={onAdd}>Add user <Plus size={15} /></button>
+        </div>
       </div>
       <div className="table-wrap">
         <table>
@@ -1575,12 +2085,215 @@ function DeleteConfirmModal({ title, message, itemName, onClose, onConfirm, load
   );
 }
 
-function EmployeesTable({ employees, loading, search, onClearSearch, onAdd, onEdit, onDelete }) {
+function EmployeeDetailsModal({ employee, onClose, onUpdateRequestStatus }) {
+  const [details, setDetails] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let ignore = false;
+    if (!employee?._id) return;
+    api(`/employees/${employee._id}`)
+      .then((data) => {
+        if (!ignore) {
+          setDetails(data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          alert(err.message || "Failed to load employee records");
+          setLoading(false);
+        }
+      });
+    return () => { ignore = true; };
+  }, [employee?._id]);
+
+  if (!employee) return null;
+
+  const assigned = details?.assignedEquipment || [];
+  const reqs = details?.requests || [];
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal modal-lg" role="dialog" aria-modal="true" aria-label="Employee records" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "680px" }}>
+        <div className="modal-head">
+          <div style={{ display: "flex", gap: "14px", alignItems: "center" }}>
+            <span className="employee-avatar" style={{ width: "42px", height: "42px", fontSize: "16px" }}>
+              {employee.name?.[0]?.toUpperCase() || "E"}
+            </span>
+            <div>
+              <h2 style={{ fontSize: "18px", margin: 0 }}>{employee.name}</h2>
+              <p style={{ margin: "3px 0 0" }}>{employee.email} · {employee.department || "No department"} · {employee.country || "No location"}</p>
+            </div>
+          </div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+
+        {loading ? (
+          <div style={{ padding: "40px 0", textAlign: "center", color: "#8790a3" }}>Loading employee records...</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
+              <div style={{ background: "#f8f9fc", padding: "12px", borderRadius: "10px", border: "1px solid #e2e8f0", textAlign: "center" }}>
+                <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Assigned Devices</span>
+                <strong style={{ display: "block", fontSize: "20px", color: "#1e293b", marginTop: "4px" }}>{assigned.length}</strong>
+              </div>
+              <div style={{ background: "#f8f9fc", padding: "12px", borderRadius: "10px", border: "1px solid #e2e8f0", textAlign: "center" }}>
+                <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Total Requests</span>
+                <strong style={{ display: "block", fontSize: "20px", color: "#1e293b", marginTop: "4px" }}>{reqs.length}</strong>
+              </div>
+              <div style={{ background: "#f8f9fc", padding: "12px", borderRadius: "10px", border: "1px solid #e2e8f0", textAlign: "center" }}>
+                <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Login Account</span>
+                <span className={`status-badge status-${details?.userAccount ? "active" : "inactive"}`} style={{ display: "inline-block", marginTop: "6px" }}>
+                  {details?.userAccount ? "Active Account" : "No Login"}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <strong style={{ fontSize: "14px", color: "#1e293b" }}>Assigned Devices ({assigned.length})</strong>
+              </div>
+              {assigned.length === 0 ? (
+                <div style={{ padding: "14px", background: "#f8fafc", borderRadius: "8px", border: "1px dashed #cbd5e1", fontSize: "13px", color: "#64748b", textAlign: "center" }}>
+                  No devices currently assigned to this employee.
+                </div>
+              ) : (
+                <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                    <thead>
+                      <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
+                        <th style={{ padding: "8px 12px" }}>DEVICE</th>
+                        <th style={{ padding: "8px 12px" }}>TYPE</th>
+                        <th style={{ padding: "8px 12px" }}>SERIAL</th>
+                        <th style={{ padding: "8px 12px" }}>STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assigned.map((item) => (
+                        <tr key={item._id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                          <td style={{ padding: "8px 12px", fontWeight: 600 }}>{item.name}</td>
+                          <td style={{ padding: "8px 12px", textTransform: "capitalize" }}>{item.type}</td>
+                          <td style={{ padding: "8px 12px", fontFamily: "monospace", fontSize: "12px" }}>{item.serialNumber}</td>
+                          <td style={{ padding: "8px 12px" }}>
+                            <span className={`status-badge status-${item.status}`}>{statusLabels[item.status] || item.status}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <strong style={{ fontSize: "14px", color: "#1e293b" }}>Equipment Requests ({reqs.length})</strong>
+              </div>
+              {reqs.length === 0 ? (
+                <div style={{ padding: "14px", background: "#f8fafc", borderRadius: "8px", border: "1px dashed #cbd5e1", fontSize: "13px", color: "#64748b", textAlign: "center" }}>
+                  No equipment requests submitted by this employee.
+                </div>
+              ) : (
+                <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                    <thead>
+                      <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
+                        <th style={{ padding: "8px 12px" }}>REQUESTED ITEM</th>
+                        <th style={{ padding: "8px 12px" }}>CATEGORY</th>
+                        <th style={{ padding: "8px 12px" }}>DATE</th>
+                        <th style={{ padding: "8px 12px" }}>STATUS</th>
+                        <th style={{ padding: "8px 12px" }}>ACTION</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reqs.map((r) => (
+                        <tr key={r._id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                          <td style={{ padding: "8px 12px", fontWeight: 600 }}>
+                            {r.item}
+                            {r.reason && <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 400 }}>{r.reason}</div>}
+                          </td>
+                          <td style={{ padding: "8px 12px", textTransform: "capitalize" }}>{r.itemType || "laptop"}</td>
+                          <td style={{ padding: "8px 12px", fontSize: "12px", color: "#64748b" }}>{r.date || "—"}</td>
+                          <td style={{ padding: "8px 12px" }}>
+                            <span className={`status-badge status-${r.status}`}>{statusLabels[r.status] || r.status}</span>
+                          </td>
+                          <td style={{ padding: "8px 12px" }}>
+                            {r.status === "pending" ? (
+                              <div style={{ display: "flex", gap: "6px" }}>
+                                <button
+                                  className="action-btn action-btn-success"
+                                  title="Approve"
+                                  onClick={async () => {
+                                    await onUpdateRequestStatus(r._id, "approved");
+                                    const updatedData = await api(`/employees/${employee._id}`);
+                                    setDetails(updatedData);
+                                  }}
+                                >
+                                  <Check size={13} />
+                                </button>
+                                <button
+                                  className="action-btn action-btn-danger"
+                                  title="Reject"
+                                  onClick={async () => {
+                                    await onUpdateRequestStatus(r._id, "rejected");
+                                    setDetails((d) => ({
+                                      ...d,
+                                      requests: d.requests.map((item) => (item._id === r._id ? { ...item, status: "rejected" } : item)),
+                                    }));
+                                  }}
+                                >
+                                  <X size={13} />
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: "11px", color: "#94a3b8" }}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="modal-actions" style={{ marginTop: "20px" }}>
+          <button type="button" className="primary-button" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmployeesTable({ employees, loading, search, onClearSearch, onSearchChange, onAdd, onViewRecords, onEdit, onDelete }) {
   return (
     <section className="panel">
-      <div className="panel-heading">
+      <div className="panel-heading" style={{ flexWrap: "wrap", gap: "12px" }}>
         <div><h2>All employees</h2><p>Team members across all countries and departments</p></div>
-        <button className="text-button add-action" onClick={onAdd}>Add employee <Plus size={15} /></button>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "auto", flexWrap: "wrap" }}>
+          <div className="table-search-box">
+            <Search size={14} />
+            <input
+              placeholder="Search employees by name, email, department, country..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#94a3b8" }}
+                onClick={onClearSearch}
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          <button className="text-button add-action" onClick={onAdd}>Add employee <Plus size={15} /></button>
+        </div>
       </div>
       <div className="table-wrap">
         <table>
@@ -1620,6 +2333,9 @@ function EmployeesTable({ employees, loading, search, onClearSearch, onAdd, onEd
                   </td>
                   <td>
                     <div className="table-actions">
+                      <button className="action-btn" title="View employee records (devices & requests)" aria-label="View employee records" onClick={() => onViewRecords(emp)}>
+                        <Eye size={14} />
+                      </button>
                       <button className="action-btn" title="Edit employee" aria-label="Edit employee" onClick={() => onEdit(emp)}>
                         <Pencil size={14} />
                       </button>
@@ -1640,6 +2356,75 @@ function EmployeesTable({ employees, loading, search, onClearSearch, onAdd, onEd
       </div>
     </section>
   );
+}
+
+
+function EmployeeJourneyBanner({ equipment = [], requests = [], shipments = [], onOpenRequest, onOpenReturn, onGoRequests, onGoShipments }) {
+  const pendingReq = requests.find((r) => r.status === "pending");
+  const inTransitShip = shipments.find((s) => s.status === "in_transit" || s.status === "processing");
+  const hasAssigned = equipment.length > 0;
+
+  if (equipment.length === 0 && requests.length === 0) {
+    return (
+      <section className="journey-banner">
+        <div className="journey-icon"><Laptop size={24} /></div>
+        <div className="journey-text">
+          <h3>Step 1: Request Your Work Equipment</h3>
+          <p>Welcome to Globit! You do not have any work equipment assigned yet. Browse in-stock available devices and submit your request.</p>
+        </div>
+        <button className="primary-button" onClick={onOpenRequest}>
+          Request Available Device <ArrowRight size={15} />
+        </button>
+      </section>
+    );
+  }
+
+  if (inTransitShip) {
+    return (
+      <section className="journey-banner journey-shipping">
+        <div className="journey-icon"><Truck size={24} /></div>
+        <div className="journey-text">
+          <h3>Your Hardware Is On The Road!</h3>
+          <p>Package dispatched via {inTransitShip.carrier || "Courier"} #{inTransitShip.trackingNumber || "Track"}. Milestone status: {inTransitShip.status}.</p>
+        </div>
+        <button className="primary-button" onClick={onGoShipments}>
+          Track Inbound Package <ArrowRight size={15} />
+        </button>
+      </section>
+    );
+  }
+
+  if (pendingReq) {
+    return (
+      <section className="journey-banner journey-pending">
+        <div className="journey-icon"><Clock size={24} /></div>
+        <div className="journey-text">
+          <h3>Request Under IT Review</h3>
+          <p>Your request for "{pendingReq.item}" is currently in the IT review queue. You will receive an immediate notification once approved.</p>
+        </div>
+        <button className="secondary-button" onClick={onGoRequests}>
+          View Request Status <ArrowRight size={15} />
+        </button>
+      </section>
+    );
+  }
+
+  if (hasAssigned) {
+    return (
+      <section className="journey-banner journey-active">
+        <div className="journey-icon"><CheckCircle2 size={24} /></div>
+        <div className="journey-text">
+          <h3>Active Hardware · {equipment[0].name} (SN: {equipment[0].serialNumber})</h3>
+          <p>Your equipment is deployed and active. If you are changing roles, upgrading, or returning hardware, you can schedule recovery anytime.</p>
+        </div>
+        <button className="secondary-button" onClick={() => onOpenReturn(equipment[0])}>
+          Return / Refresh Device <RotateCcw size={15} />
+        </button>
+      </section>
+    );
+  }
+
+  return null;
 }
 
 function Dashboard({ user, onSignOut }) {
@@ -1674,12 +2459,14 @@ function Dashboard({ user, onSignOut }) {
   const [shipments, setShipments] = useState([]);
   const [loadingShipments, setLoadingShipments] = useState(true);
   const [showAddShipment, setShowAddShipment] = useState(false);
+  const [dispatchRequest, setDispatchRequest] = useState(null);
   const [trackingShipment, setTrackingShipment] = useState(null);
 
   // Returns state
   const [returnsList, setReturnsList] = useState([]);
   const [loadingReturns, setLoadingReturns] = useState(true);
   const [showAddReturn, setShowAddReturn] = useState(false);
+  const [returnEquipment, setReturnEquipment] = useState(null);
   const [completingReturn, setCompletingReturn] = useState(null);
 
   // Users state (only admins can open the Users page)
@@ -1690,7 +2477,118 @@ function Dashboard({ user, onSignOut }) {
   const [resettingUser, setResettingUser] = useState(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
 
-  const visibleNavigation = navigation.filter((entry) => entry.label !== "Users" || user.role === "admin");
+  const [viewingEmployee, setViewingEmployee] = useState(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [readNotifications, setReadNotifications] = useState(new Set());
+  const notificationsRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const [backendNotifications, setBackendNotifications] = useState([]);
+
+  // Fetch real-time backend notifications
+  const loadNotifications = () => {
+    api("/notifications")
+      .then(({ notifications: list }) => setBackendNotifications(list || []))
+      .catch(() => { });
+  };
+
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const notifications = useMemo(() => {
+    // If backend notifications exist, map them
+    if (backendNotifications && backendNotifications.length > 0) {
+      return backendNotifications.map((n) => ({
+        id: n._id,
+        title: n.title,
+        message: n.message,
+        time: new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        targetTab: n.targetTab || "Requests",
+        icon: n.type === "shipment" ? Truck : n.type === "return" ? RotateCcw : ClipboardList,
+        color: n.type === "shipment" ? "#6554d9" : n.type === "return" ? "#0ea5e9" : "#f59e0b",
+        read: n.read,
+      }));
+    }
+
+    // Fallback: operational alerts computed from live state
+    const list = [];
+    if (user.role === "admin" || user.role === "manager") {
+      requests.filter((r) => r.status === "pending").slice(0, 5).forEach((r) => {
+        list.push({
+          id: `req-${r._id}`,
+          title: "New equipment request",
+          message: `${r.employee?.name || "An employee"} requested ${r.item}`,
+          time: r.date || "Pending review",
+          targetTab: "Requests",
+          icon: ClipboardList,
+          color: "#f59e0b",
+          read: false,
+        });
+      });
+      shipments.filter((s) => s.status === "processing" || s.status === "in_transit").slice(0, 3).forEach((s) => {
+        list.push({
+          id: `ship-${s._id}`,
+          title: s.status === "in_transit" ? "Shipment in transit" : "Shipment processing",
+          message: `${s.equipment?.name || "Equipment"} sent to ${s.employee?.name || "employee"}`,
+          time: s.destinationCountry || "In transit",
+          targetTab: "Shipments",
+          icon: Truck,
+          color: "#6554d9",
+          read: false,
+        });
+      });
+    } else {
+      requests.filter((r) => r.status === "approved").slice(0, 3).forEach((r) => {
+        list.push({
+          id: `req-app-${r._id}`,
+          title: "Request approved & assigned!",
+          message: `Your request for ${r.item} was approved.`,
+          time: "Approved",
+          targetTab: "Requests",
+          icon: CheckCircle2,
+          color: "#16a34a",
+          read: false,
+        });
+      });
+      requests.filter((r) => r.status === "rejected").slice(0, 3).forEach((r) => {
+        list.push({
+          id: `req-rej-${r._id}`,
+          title: "Request update",
+          message: r.rejectionReason || `Request for ${r.item} was declined.`,
+          time: "Cancelled",
+          targetTab: "Requests",
+          icon: X,
+          color: "#ef4444",
+          read: false,
+        });
+      });
+    }
+    return list;
+  }, [backendNotifications, user.role, requests, shipments]);
+
+  const unreadCount = notifications.filter((n) => !n.read && !readNotifications.has(n.id)).length;
+
+  const visibleNavigation = user.role === "employee"
+    ? [
+      { label: "Dashboard", icon: LayoutDashboard },
+      { label: "Equipment", icon: Laptop, displayLabel: "My Devices" },
+      { label: "Requests", icon: ClipboardList, displayLabel: "My Requests" },
+      { label: "Shipments", icon: Truck, displayLabel: "My Shipments" },
+      { label: "Returns", icon: RotateCcw, displayLabel: "My Returns" },
+    ]
+    : navigation.filter((entry) => entry.label !== "Users" || user.role === "admin");
 
   useEffect(() => {
     api("/equipment")
@@ -1779,13 +2677,20 @@ function Dashboard({ user, onSignOut }) {
   const activeEmployeesCount = employees.filter((emp) => emp.status === "active").length;
   const pendingRequestsCount = requests.filter((r) => r.status === "pending").length;
 
-  const liveStats = stats.map((stat) => {
-    if (stat.label === "Total Equipment") return { ...stat, value: equipment.length };
-    if (stat.label === "Active Employees") return { ...stat, value: activeEmployeesCount };
-    if (stat.label === "Pending Requests") return { ...stat, value: pendingRequestsCount };
-    if (stat.label === "In Transit") return { ...stat, value: equipment.filter((item) => item.status === "in_transit").length };
-    return stat;
-  });
+  const liveStats = user.role === "employee"
+    ? [
+      { label: "My Devices", value: equipment.length, note: "Assigned to you", icon: Laptop },
+      { label: "Total Requests", value: requests.length, note: "Submitted requests", icon: Users },
+      { label: "Pending Requests", value: pendingRequestsCount, note: "Awaiting approval", icon: Clock },
+      { label: "In Transit", value: shipments.filter((s) => s.status === "in_transit" || s.status === "processing").length, note: "On the way to you", icon: Truck },
+    ]
+    : stats.map((stat) => {
+      if (stat.label === "Total Equipment") return { ...stat, value: equipment.length };
+      if (stat.label === "Active Employees") return { ...stat, value: activeEmployeesCount };
+      if (stat.label === "Pending Requests") return { ...stat, value: pendingRequestsCount };
+      if (stat.label === "In Transit") return { ...stat, value: equipment.filter((item) => item.status === "in_transit").length };
+      return stat;
+    });
 
   // Equipment actions
   async function confirmDeleteEquipment() {
@@ -1833,6 +2738,8 @@ function Dashboard({ user, onSignOut }) {
         body: JSON.stringify({ status: newStatus }),
       });
       setRequests((list) => list.map((r) => (r._id === id ? updated : r)));
+      refreshEquipment();
+      api("/employees").then(({ employees: emps }) => setEmployees(emps || [])).catch(() => { });
     } catch (err) {
       alert(err.message || "Failed to update request status");
     }
@@ -1914,7 +2821,7 @@ function Dashboard({ user, onSignOut }) {
       <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>
         <div className="brand"><img className="brand-logo" src="/globit-logo.svg" alt="" /><span>globit<span className="brand-dot">.</span></span><button className="mobile-close" onClick={() => setMenuOpen(false)}><X size={20} /></button></div>
         <div className="workspace-label">WORKSPACE</div>
-        <nav className="navigation">{visibleNavigation.map(({ label, icon: Icon }) => <button key={label} className={`nav-item ${activePage === label ? "nav-active" : ""}`} onClick={() => { setActivePage(label); setMenuOpen(false); setSearch(""); }}><Icon size={19} /><span>{label}</span></button>)}</nav>
+        <nav className="navigation">{visibleNavigation.map(({ label, icon: Icon, displayLabel }) => <button key={label} className={`nav-item ${activePage === label ? "nav-active" : ""}`} onClick={() => { setActivePage(label); setMenuOpen(false); setSearch(""); }}><Icon size={19} /><span>{displayLabel || label}</span></button>)}</nav>
         <div className="sidebar-bottom"><div className="help-card"><div className="help-icon">✦</div><strong>Need a hand?</strong><p>Manage your global equipment with ease.</p><button onClick={() => alert("Help centre coming soon!")}>Visit help centre ↗</button></div><div className="profile"><div className="avatar avatar-purple">{user.name[0]}</div><div className="profile-info"><strong>{user.name}</strong><span>{user.role}</span></div><button className="dashboard-signout" onClick={onSignOut} title="Sign out" aria-label="Sign out"><ArrowRight size={16} /></button></div></div>
       </aside>
       {menuOpen && <button className="mobile-overlay" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
@@ -1924,8 +2831,12 @@ function Dashboard({ user, onSignOut }) {
         <AddEquipmentModal
           employees={employees}
           onClose={() => setShowAddEquipment(false)}
-          onAdded={(item) => {
-            setEquipment((list) => [item, ...list]);
+          onAdded={(item, items) => {
+            if (Array.isArray(items) && items.length > 0) {
+              setEquipment((list) => [...items, ...list]);
+            } else {
+              setEquipment((list) => [item, ...list]);
+            }
             setShowAddEquipment(false);
           }}
         />
@@ -1961,6 +2872,9 @@ function Dashboard({ user, onSignOut }) {
           onAdded={(employee) => {
             setEmployees((list) => [employee, ...list]);
             setShowAddEmployee(false);
+            if (user.role === "admin") {
+              api("/users").then(({ users: list }) => setUsers(list || [])).catch(() => { });
+            }
           }}
         />
       )}
@@ -1983,6 +2897,14 @@ function Dashboard({ user, onSignOut }) {
         />
       )}
 
+      {viewingEmployee && (
+        <EmployeeDetailsModal
+          employee={viewingEmployee}
+          onClose={() => setViewingEmployee(null)}
+          onUpdateRequestStatus={handleUpdateRequestStatus}
+        />
+      )}
+
       {deletingEmployee && (
         <DeleteConfirmModal
           title="Delete employee"
@@ -1998,6 +2920,7 @@ function Dashboard({ user, onSignOut }) {
       {showAddRequest && (
         <AddRequestModal
           employees={employees}
+          currentUser={user}
           onClose={() => setShowAddRequest(false)}
           onAdded={(request) => {
             setRequests((list) => [request, ...list]);
@@ -2022,10 +2945,18 @@ function Dashboard({ user, onSignOut }) {
         <AddShipmentModal
           equipment={equipment}
           employees={employees}
-          onClose={() => setShowAddShipment(false)}
-          onAdded={(shipment) => {
+          initialRequest={dispatchRequest}
+          onClose={() => {
+            setShowAddShipment(false);
+            setDispatchRequest(null);
+          }}
+          onAdded={(shipment, fulfilledRequestId) => {
             setShipments((list) => [shipment, ...list]);
             setShowAddShipment(false);
+            setDispatchRequest(null);
+            if (fulfilledRequestId) {
+              setRequests((list) => list.map((r) => (r._id === fulfilledRequestId ? { ...r, status: "fulfilled", shipment } : r)));
+            }
             refreshEquipment();
           }}
         />
@@ -2039,10 +2970,17 @@ function Dashboard({ user, onSignOut }) {
       {showAddReturn && (
         <AddReturnModal
           equipment={equipment}
-          onClose={() => setShowAddReturn(false)}
+          initialEquipment={returnEquipment}
+          currentUser={user}
+          onClose={() => {
+            setShowAddReturn(false);
+            setReturnEquipment(null);
+          }}
           onAdded={(equipmentReturn) => {
             setReturnsList((list) => [equipmentReturn, ...list]);
             setShowAddReturn(false);
+            setReturnEquipment(null);
+            refreshEquipment();
           }}
         />
       )}
@@ -2062,6 +3000,7 @@ function Dashboard({ user, onSignOut }) {
           onAdded={(created) => {
             setUsers((list) => [created, ...list]);
             setShowAddUser(false);
+            api("/employees").then(({ employees: list }) => setEmployees(list || [])).catch(() => { });
           }}
         />
       )}
@@ -2097,7 +3036,77 @@ function Dashboard({ user, onSignOut }) {
               />
             </div>
             <button className="notification-button change-password-btn" aria-label="Change password" title="Change password" onClick={() => setShowChangePassword(true)}><LockKeyhole size={18} /></button>
-            <button className="notification-button" aria-label="Notifications" onClick={() => alert("No notifications yet.")}><Bell size={19} /></button>
+            <div className="notifications-wrap" ref={notificationsRef}>
+              <button
+                type="button"
+                className="notification-button"
+                aria-label="Notifications"
+                title="Notifications"
+                onClick={() => setShowNotifications((prev) => !prev)}
+              >
+                <Bell size={19} />
+                {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+              </button>
+              {showNotifications && (
+                <div className="notifications-dropdown" role="dialog" aria-label="Notifications center">
+                  <div className="notifications-header">
+                    <div>
+                      <h3>Notifications</h3>
+                      <span style={{ fontSize: "11px", color: "#9299aa" }}>
+                        {unreadCount > 0 ? `${unreadCount} unread update${unreadCount === 1 ? "" : "s"}` : "All caught up"}
+                      </span>
+                    </div>
+                    {notifications.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setReadNotifications(new Set(notifications.map((n) => n.id)));
+                          api("/notifications/read-all", { method: "PATCH" }).catch(() => { });
+                        }}
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  <div className="notifications-list">
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: "34px 20px", textAlign: "center", color: "#94a3b8", fontSize: "12px" }}>
+                        ✓ No new notifications. You're all caught up!
+                      </div>
+                    ) : (
+                      notifications.map((n) => {
+                        const isUnread = !readNotifications.has(n.id);
+                        const IconComponent = n.icon;
+                        return (
+                          <button
+                            key={n.id}
+                            type="button"
+                            className={`notification-item ${isUnread ? "unread" : ""}`}
+                            onClick={() => {
+                              setActivePage(n.targetTab);
+                              setReadNotifications((prev) => new Set([...prev, n.id]));
+                              setShowNotifications(false);
+                              if (!n.id.startsWith("req-") && !n.id.startsWith("ship-")) {
+                                api(`/notifications/${n.id}/read`, { method: "PATCH" }).catch(() => { });
+                              }
+                            }}
+                          >
+                            <div className="notification-icon-wrap" style={{ background: `${n.color}15`, color: n.color }}>
+                              <IconComponent size={16} />
+                            </div>
+                            <div className="notification-content">
+                              <div className="notification-title">{n.title}</div>
+                              <div className="notification-msg">{n.message}</div>
+                              <div className="notification-time">{n.time}</div>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="avatar avatar-light">{user.name[0]}</div>
           </div>
         </header>
@@ -2106,30 +3115,55 @@ function Dashboard({ user, onSignOut }) {
           {user.role === "viewer" && (
             <div className="demo-banner" role="status">You are viewing the read-only demo. Creating, editing and deleting are turned off.</div>
           )}
+          {user.role === "employee" && (
+            <EmployeeJourneyBanner
+              equipment={equipment}
+              requests={requests}
+              shipments={shipments}
+              onOpenRequest={() => setShowAddRequest(true)}
+              onOpenReturn={(item) => { setReturnEquipment(item); setShowAddReturn(true); }}
+              onGoRequests={() => setActivePage("Requests")}
+              onGoShipments={() => setActivePage("Shipments")}
+            />
+          )}
+
           <section className="welcome-row">
             <div>
-              <div className="eyebrow"><span className="live-dot" /> GLOBAL EQUIPMENT OPERATIONS</div>
-              <h1>{activePage === "Dashboard" ? "Equipment overview" : activePage}</h1>
+              <div className="eyebrow"><span className="live-dot" /> {user.role === "employee" ? "EMPLOYEE SELF-SERVICE PORTAL" : "GLOBAL EQUIPMENT OPERATIONS"}</div>
+              <h1>{user.role === "employee" ? (activePage === "Dashboard" ? `Welcome, ${user.name}` : activePage === "Equipment" ? "My devices" : activePage === "Requests" ? "My requests" : activePage === "Shipments" ? "My shipments" : activePage === "Returns" ? "My returns" : activePage) : (activePage === "Dashboard" ? "Equipment overview" : activePage)}</h1>
               <p className="welcome-subtitle">
-                {activePage === "Dashboard"
-                  ? "Your workspace overview will appear here as records are added."
-                  : activePage === "Employees"
-                    ? "Manage your global workforce and employee records in one place."
-                    : activePage === "Requests"
-                      ? "Review, approve, and manage equipment requests submitted by employees."
-                      : activePage === "Shipments"
-                        ? "Create shipments, follow their progress and confirm deliveries."
-                        : activePage === "Returns"
-                          ? "Record returned devices, inspect them and put them back in stock."
-                          : activePage === "Users"
-                            ? "Create accounts, set roles and control who can sign in."
-                            : `Manage ${activePage.toLowerCase()} in one place.`}
+                {user.role === "employee"
+                  ? activePage === "Dashboard"
+                    ? "Your personal workspace. Track assigned devices, submit requests, and check shipments."
+                    : activePage === "Equipment"
+                      ? "Hardware and peripherals currently assigned to your employee account."
+                      : activePage === "Requests"
+                        ? "Equipment requests you have submitted and their live status."
+                        : activePage === "Shipments"
+                          ? "Equipment packages currently in transit to your location."
+                          : activePage === "Returns"
+                            ? "Equipment return records."
+                            : `Manage ${activePage.toLowerCase()}.`
+                  : activePage === "Dashboard"
+                    ? "Your workspace overview will appear here as records are added."
+                    : activePage === "Employees"
+                      ? "Manage your global workforce and employee records in one place."
+                      : activePage === "Requests"
+                        ? "Review, approve, and manage equipment requests submitted by employees."
+                        : activePage === "Shipments"
+                          ? "Create shipments, follow their progress and confirm deliveries."
+                          : activePage === "Returns"
+                            ? "Record returned devices, inspect them and put them back in stock."
+                            : activePage === "Users"
+                              ? "Create accounts, set roles and control who can sign in."
+                              : `Manage ${activePage.toLowerCase()} in one place.`}
               </p>
             </div>
             <button
               className="primary-button"
               onClick={() => {
-                if (activePage === "Employees") setShowAddEmployee(true);
+                if (user.role === "employee") setShowAddRequest(true);
+                else if (activePage === "Employees") setShowAddEmployee(true);
                 else if (activePage === "Equipment" || activePage === "Dashboard") setShowAddEquipment(true);
                 else if (activePage === "Requests") setShowAddRequest(true);
                 else if (activePage === "Shipments") setShowAddShipment(true);
@@ -2138,7 +3172,7 @@ function Dashboard({ user, onSignOut }) {
                 else alert("We'll add this feature when we build the forms.");
               }}
             >
-              <Plus size={18} /> Add {activePage === "Employees" ? "employee" : activePage === "Requests" ? "request" : activePage === "Dashboard" ? "equipment" : activePage.replace(/s$/, "")}
+              <Plus size={18} /> {user.role === "employee" ? "Request device" : `Add ${activePage === "Employees" ? "employee" : activePage === "Requests" ? "request" : activePage === "Dashboard" ? "equipment" : activePage.replace(/s$/, "")}`}
             </button>
           </section>
 
@@ -2160,8 +3194,11 @@ function Dashboard({ user, onSignOut }) {
               items={visibleEquipment}
               loading={loadingEquipment}
               search={search}
+              role={user.role}
               onClearSearch={() => setSearch("")}
+              onSearchChange={setSearch}
               onAdd={() => setShowAddEquipment(true)}
+              onRequestReturn={(item) => { setReturnEquipment(item); setShowAddReturn(true); }}
               onEdit={(item) => setEditingEquipment(item)}
               onDelete={(item) => setDeletingEquipment(item)}
             />
@@ -2171,7 +3208,9 @@ function Dashboard({ user, onSignOut }) {
               loading={loadingEmployees}
               search={search}
               onClearSearch={() => setSearch("")}
+              onSearchChange={setSearch}
               onAdd={() => setShowAddEmployee(true)}
+              onViewRecords={(emp) => setViewingEmployee(emp)}
               onEdit={(emp) => setEditingEmployee(emp)}
               onDelete={(emp) => setDeletingEmployee(emp)}
             />
@@ -2180,9 +3219,15 @@ function Dashboard({ user, onSignOut }) {
               requests={visibleRequests}
               loading={loadingRequests}
               search={search}
+              role={user.role}
               onClearSearch={() => setSearch("")}
+              onSearchChange={setSearch}
               onAdd={() => setShowAddRequest(true)}
               onUpdateStatus={handleUpdateRequestStatus}
+              onDispatch={(req) => {
+                setDispatchRequest(req);
+                setShowAddShipment(true);
+              }}
               onDelete={(req) => setDeletingRequest(req)}
             />
           ) : activePage === "Shipments" ? (
@@ -2192,7 +3237,7 @@ function Dashboard({ user, onSignOut }) {
               search={search}
               role={user.role}
               onClearSearch={() => setSearch("")}
-              onAdd={() => setShowAddShipment(true)}
+              onSearchChange={setSearch}
               onTrack={(shipment) => setTrackingShipment(shipment)}
               onStatus={handleShipmentStatus}
               onDelete={handleDeleteShipment}
@@ -2204,6 +3249,7 @@ function Dashboard({ user, onSignOut }) {
               search={search}
               role={user.role}
               onClearSearch={() => setSearch("")}
+              onSearchChange={setSearch}
               onAdd={() => setShowAddReturn(true)}
               onReceive={(id) => handleReturnStatus(id, "received")}
               onComplete={(item) => setCompletingReturn(item)}
@@ -2217,6 +3263,7 @@ function Dashboard({ user, onSignOut }) {
               search={search}
               currentUserId={user.id}
               onClearSearch={() => setSearch("")}
+              onSearchChange={setSearch}
               onAdd={() => setShowAddUser(true)}
               onEdit={(item) => setEditingUser(item)}
               onReset={(item) => setResettingUser(item)}
@@ -2225,7 +3272,7 @@ function Dashboard({ user, onSignOut }) {
             <section className="content-grid">
               <article className="panel requests-panel">
                 <div className="panel-heading">
-                  <div><h2>Recent requests</h2><p>Equipment requests submitted by employees</p></div>
+                  <div><h2>Recent requests</h2><p>{user.role === "employee" ? "Your equipment requests and status" : "Equipment requests submitted by employees"}</p></div>
                   <div style={{ display: "flex", gap: "10px" }}>
                     <button className="text-button add-action" onClick={() => setShowAddRequest(true)}>Add request <Plus size={14} /></button>
                     <button className="text-button" onClick={() => setActivePage("Requests")}>View all <ArrowUpRight size={15} /></button>
@@ -2236,7 +3283,7 @@ function Dashboard({ user, onSignOut }) {
                     <thead><tr><th>EMPLOYEE</th><th>EQUIPMENT</th><th>DATE</th><th>STATUS</th></tr></thead>
                     <tbody>
                       {visibleRequests.length === 0 ? (
-                        <tr><td colSpan="4" className="empty-state">{search ? "No matching requests found." : "No requests yet. New requests will appear here."}</td></tr>
+                        <tr><td colSpan="4" className="empty-state">{search ? "No matching requests found." : user.role === "employee" ? "You have not submitted any device requests yet." : "No requests yet. New requests will appear here."}</td></tr>
                       ) : (
                         visibleRequests.map((request) => (
                           <tr key={request._id}>
@@ -2261,7 +3308,7 @@ function Dashboard({ user, onSignOut }) {
                     </tbody>
                   </table>
                 </div>
-                <div className="panel-footer"><span>{visibleRequests.length} requests</span><button onClick={() => setSearch("")}>Clear search</button></div>
+                <div className="panel-footer"><span>{visibleRequests.length} requests</span></div>
               </article>
               <article className="panel shipment-panel">
                 <div className="panel-heading">

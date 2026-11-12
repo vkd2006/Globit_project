@@ -7,6 +7,11 @@ const requestSchema = new mongoose.Schema(
             ref: 'Employee',
             required: true,
         },
+        equipment: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Equipment',
+            default: null,
+        },
         item: { type: String, required: true, trim: true },
         itemType: {
             type: String,
@@ -18,6 +23,12 @@ const requestSchema = new mongoose.Schema(
             type: String,
             enum: ['pending', 'approved', 'rejected', 'fulfilled'],
             default: 'pending',
+        },
+        rejectionReason: { type: String, trim: true, default: '' },
+        shipment: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Shipment',
+            default: null,
         },
         date: { type: String },
     },
