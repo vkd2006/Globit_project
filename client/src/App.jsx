@@ -63,13 +63,13 @@ const stats = [
 function Brand({ light = false }) {
   return (
     <div className={`brand ${light ? "brand-light" : ""}`}>
-      <div className="brand-icon"><Package size={23} /></div>
+      <img className="brand-logo" src="/globit-logo.svg" alt="" />
       <span>globit<span className="brand-dot">.</span></span>
     </div>
   );
 }
 
-function LandingPage({ onSignIn, onGetStarted }) {
+function LandingPage({ onSignIn, onGetStarted, onDemo }) {
   return (
     <div className="landing-page">
       <header className="landing-nav">
@@ -94,6 +94,7 @@ function LandingPage({ onSignIn, onGetStarted }) {
             <div className="hero-actions">
               <button className="landing-primary hero-cta" onClick={onGetStarted}>Get started <ArrowRight size={17} /></button>
               <button className="landing-secondary" onClick={onSignIn}>Sign in to your workspace</button>
+              <button className="landing-secondary" onClick={async () => { try { await onDemo(); } catch (err) { alert(err.message); } }}>Try the demo</button>
             </div>
             <div className="hero-trust"><span className="trust-icon"><ShieldCheck size={17} /></span><span>One workspace. Every location. Total visibility.</span></div>
           </div>
@@ -134,7 +135,7 @@ function LandingPage({ onSignIn, onGetStarted }) {
   );
 }
 
-function SignInPage({ onBack, onSignedIn }) {
+function SignInPage({ onBack, onSignedIn, onDemo }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -162,12 +163,24 @@ function SignInPage({ onBack, onSignedIn }) {
     }
   }
 
+  async function handleDemo() {
+    setLoading(true);
+    setMessage("");
+    try {
+      await onDemo();
+    } catch (err) {
+      setMessage(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="signin-page">
       <header className="signin-nav"><button className="landing-brand-link" onClick={onBack} aria-label="Back to home"><Brand /></button><button className="signin-back" onClick={onBack}>← Back to home</button></header>
       <main className="signin-main">
         <section className="signin-card">
-          <div className="signin-mark"><Package size={26} /></div>
+          <img className="signin-logo" src="/globit-logo.svg" alt="Globit" />
           <span className="section-eyebrow">WELCOME BACK</span>
           <h1>Sign in to Globit</h1>
           <p className="signin-intro">Access your global equipment workspace.</p>
@@ -179,6 +192,7 @@ function SignInPage({ onBack, onSignedIn }) {
             <button className="landing-primary signin-submit" type="submit" disabled={loading}>{loading ? "Signing in..." : "Sign in"} <ArrowRight size={17} /></button>
             {message && <p className="signin-message" role="status">{message}</p>}
           </form>
+          <button type="button" className="signin-demo-link" onClick={handleDemo} disabled={loading}>Try the demo (read-only)</button>
           <div className="signin-security"><ShieldCheck size={16} /> Your workspace, all in one place.</div>
         </section>
       </main>
@@ -394,7 +408,7 @@ function EquipmentTable({ items, loading, search, onClearSearch, onAdd, onEdit, 
     <section className="panel">
       <div className="panel-heading">
         <div><h2>All equipment</h2><p>Every device registered in your workspace</p></div>
-        <button className="text-button" onClick={onAdd}>Add equipment <Plus size={15} /></button>
+        <button className="text-button add-action" onClick={onAdd}>Add equipment <Plus size={15} /></button>
       </div>
       <div className="table-wrap">
         <table>
@@ -706,7 +720,7 @@ function RequestsTable({ requests, loading, search, onClearSearch, onAdd, onUpda
     <section className="panel">
       <div className="panel-heading">
         <div><h2>All requests</h2><p>Equipment requests submitted by team members</p></div>
-        <button className="text-button" onClick={onAdd}>Add request <Plus size={15} /></button>
+        <button className="text-button add-action" onClick={onAdd}>Add request <Plus size={15} /></button>
       </div>
       <div className="table-wrap">
         <table>
@@ -903,7 +917,7 @@ function ShipmentsTable({ shipments, loading, search, role, onClearSearch, onAdd
     <section className="panel">
       <div className="panel-heading">
         <div><h2>All shipments</h2><p>Equipment on its way to your team, worldwide</p></div>
-        <button className="text-button" onClick={onAdd}>Add shipment <Plus size={15} /></button>
+        <button className="text-button add-action" onClick={onAdd}>Add shipment <Plus size={15} /></button>
       </div>
       <div className="table-wrap">
         <table>
@@ -1158,7 +1172,7 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
     <section className="panel">
       <div className="panel-heading">
         <div><h2>All returns</h2><p>Devices coming back from your team</p></div>
-        <button className="text-button" onClick={onAdd}>Add return <Plus size={15} /></button>
+        <button className="text-button add-action" onClick={onAdd}>Add return <Plus size={15} /></button>
       </div>
       <div className="table-wrap">
         <table>
@@ -1242,7 +1256,7 @@ function ReturnsTable({ returns, loading, search, role, onClearSearch, onAdd, on
   );
 }
 
-const roleOptions = ["admin", "manager", "employee"];
+const roleOptions = ["admin", "manager", "employee", "viewer"];
 
 function AddUserModal({ onClose, onAdded }) {
   const [form, setForm] = useState({ name: "", email: "", role: "employee", password: "" });
@@ -1483,7 +1497,7 @@ function UsersTable({ users, loading, search, currentUserId, onClearSearch, onAd
     <section className="panel">
       <div className="panel-heading">
         <div><h2>All users</h2><p>People who can sign in to Globit, and what they can do</p></div>
-        <button className="text-button" onClick={onAdd}>Add user <Plus size={15} /></button>
+        <button className="text-button add-action" onClick={onAdd}>Add user <Plus size={15} /></button>
       </div>
       <div className="table-wrap">
         <table>
@@ -1566,7 +1580,7 @@ function EmployeesTable({ employees, loading, search, onClearSearch, onAdd, onEd
     <section className="panel">
       <div className="panel-heading">
         <div><h2>All employees</h2><p>Team members across all countries and departments</p></div>
-        <button className="text-button" onClick={onAdd}>Add employee <Plus size={15} /></button>
+        <button className="text-button add-action" onClick={onAdd}>Add employee <Plus size={15} /></button>
       </div>
       <div className="table-wrap">
         <table>
@@ -1896,9 +1910,9 @@ function Dashboard({ user, onSignOut }) {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${user.role === "viewer" ? "is-viewer" : ""}`}>
       <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>
-        <div className="brand"><div className="brand-icon"><Package size={23} /></div><span>globit<span className="brand-dot">.</span></span><button className="mobile-close" onClick={() => setMenuOpen(false)}><X size={20} /></button></div>
+        <div className="brand"><img className="brand-logo" src="/globit-logo.svg" alt="" /><span>globit<span className="brand-dot">.</span></span><button className="mobile-close" onClick={() => setMenuOpen(false)}><X size={20} /></button></div>
         <div className="workspace-label">WORKSPACE</div>
         <nav className="navigation">{visibleNavigation.map(({ label, icon: Icon }) => <button key={label} className={`nav-item ${activePage === label ? "nav-active" : ""}`} onClick={() => { setActivePage(label); setMenuOpen(false); setSearch(""); }}><Icon size={19} /><span>{label}</span></button>)}</nav>
         <div className="sidebar-bottom"><div className="help-card"><div className="help-icon">✦</div><strong>Need a hand?</strong><p>Manage your global equipment with ease.</p><button onClick={() => alert("Help centre coming soon!")}>Visit help centre ↗</button></div><div className="profile"><div className="avatar avatar-purple">{user.name[0]}</div><div className="profile-info"><strong>{user.name}</strong><span>{user.role}</span></div><button className="dashboard-signout" onClick={onSignOut} title="Sign out" aria-label="Sign out"><ArrowRight size={16} /></button></div></div>
@@ -2082,13 +2096,16 @@ function Dashboard({ user, onSignOut }) {
                 aria-label="Search"
               />
             </div>
-            <button className="notification-button" aria-label="Change password" title="Change password" onClick={() => setShowChangePassword(true)}><LockKeyhole size={18} /></button>
+            <button className="notification-button change-password-btn" aria-label="Change password" title="Change password" onClick={() => setShowChangePassword(true)}><LockKeyhole size={18} /></button>
             <button className="notification-button" aria-label="Notifications" onClick={() => alert("No notifications yet.")}><Bell size={19} /></button>
             <div className="avatar avatar-light">{user.name[0]}</div>
           </div>
         </header>
 
         <div className="page-content">
+          {user.role === "viewer" && (
+            <div className="demo-banner" role="status">You are viewing the read-only demo. Creating, editing and deleting are turned off.</div>
+          )}
           <section className="welcome-row">
             <div>
               <div className="eyebrow"><span className="live-dot" /> GLOBAL EQUIPMENT OPERATIONS</div>
@@ -2210,7 +2227,7 @@ function Dashboard({ user, onSignOut }) {
                 <div className="panel-heading">
                   <div><h2>Recent requests</h2><p>Equipment requests submitted by employees</p></div>
                   <div style={{ display: "flex", gap: "10px" }}>
-                    <button className="text-button" onClick={() => setShowAddRequest(true)}>Add request <Plus size={14} /></button>
+                    <button className="text-button add-action" onClick={() => setShowAddRequest(true)}>Add request <Plus size={14} /></button>
                     <button className="text-button" onClick={() => setActivePage("Requests")}>View all <ArrowUpRight size={15} /></button>
                   </div>
                 </div>
@@ -2311,10 +2328,17 @@ function App() {
     setView("landing");
   }
 
+  // Signs in to the read-only demo account without a password
+  async function handleDemo() {
+    const { user: demoUser } = await api("/auth/demo", { method: "POST" });
+    setUser(demoUser);
+    setView("dashboard");
+  }
+
   if (view === "loading") return null;
-  if (view === "signin") return <SignInPage onBack={() => setView("landing")} onSignedIn={(u) => { setUser(u); setView("dashboard"); }} />;
+  if (view === "signin") return <SignInPage onBack={() => setView("landing")} onSignedIn={(u) => { setUser(u); setView("dashboard"); }} onDemo={handleDemo} />;
   if (view === "dashboard" && user) return <Dashboard user={user} onSignOut={handleSignOut} />;
-  return <LandingPage onSignIn={() => setView("signin")} onGetStarted={() => setView("signin")} />;
+  return <LandingPage onSignIn={() => setView("signin")} onGetStarted={() => setView("signin")} onDemo={handleDemo} />;
 }
 
 export default App;

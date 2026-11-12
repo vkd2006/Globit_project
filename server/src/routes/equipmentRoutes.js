@@ -67,7 +67,7 @@ router.put('/:id', restrictTo('admin', 'manager'), async (req, res) => {
     }
     try {
         const data = { ...parsed.data }
-        
+
         // Handle assignment status logic
         if (data.assignedTo !== undefined) {
             if (data.assignedTo && data.assignedTo !== '') {
