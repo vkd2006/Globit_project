@@ -3186,6 +3186,7 @@ td {
   color: #b3372f;
   background: #fff1f0;
 }
+
 /* =========================================
    NOTIFICATION CENTER & IN-TABLE SEARCH
 ========================================= */
@@ -3504,6 +3505,34 @@ td {
     width: 34px;
     height: 37px;
   }
+}
+
+/* =========================================
+   READ-ONLY DEMO MODE
+========================================= */
+
+.demo-banner {
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  color: #6554d9;
+  font-size: 12px;
+  font-weight: 600;
+  background: #f3f0ff;
+  border: 1px solid #e6e0ff;
+  border-radius: 10px;
+}
+
+.is-viewer .add-action,
+.is-viewer .table-actions,
+.is-viewer .welcome-row .primary-button,
+.is-viewer .change-password-btn {
+  display: none;
+}
+
+.role-viewer {
+  color: #b7791f;
+  background: #fff4e5;
+  text-transform: capitalize;
 }
 
 /* =========================================

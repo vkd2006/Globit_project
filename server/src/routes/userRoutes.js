@@ -8,7 +8,7 @@ import { protect, restrictTo } from '../middleware/auth.js'
 const router = Router()
 router.use(protect, restrictTo('admin'))
 
-const roleEnum = z.enum(['admin', 'manager', 'employee'])
+const roleEnum = z.enum(['admin', 'manager', 'employee', 'viewer'])
 
 const createSchema = z.object({
     name: z.string().trim().min(1, 'Name is required'),

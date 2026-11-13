@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken'
 import User from '../models/User.js'
 
+const readOnlyMethods = ['GET', 'HEAD', 'OPTIONS']
+
 export async function protect(req, res, next) {
     try {
         const token = req.cookies.token
@@ -8,7 +10,11 @@ export async function protect(req, res, next) {
         const { id } = jwt.verify(token, process.env.JWT_SECRET)
         const user = await User.findById(id)
         if (!user || user.active === false) {
-            return res.status(401).json({ message: 'This account is not available.' })
+            return res.status(401).json({ message: 'This account is not available' })
+        }
+        // The demo account can look but never change anything
+        if (user.role === 'viewer' && !readOnlyMethods.includes(req.method)) {
+            return res.status(403).json({ message: 'The demo account is read-only' })
         }
         req.user = user
         next()
@@ -20,4 +26,4 @@ export async function protect(req, res, next) {
 export const restrictTo = (...roles) => (req, res, next) =>
     roles.includes(req.user.role)
         ? next()
-        : res.status(403).json({ message: 'You do not have permission ' })
+        : res.status(403).json({ message: 'You do not have permission' })
